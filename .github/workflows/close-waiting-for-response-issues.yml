@@ -3,18 +3,57 @@ on:
   schedule:
     - cron: "30 1 * * *"
   workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   check-need-info:
     runs-on: ubuntu-latest
-    steps:
-      - name: close-issues
-        uses: actions-cool/issues-helper@45d75b6cf72bf4f254be6230cb887ad002702491 # v3.6.3
-        with:
-          actions: "close-issues"
-          token: ${{ secrets.GITHUB_TOKEN }}
-          labels: "Waiting for Response"
-          inactive-day: 14
-          body: |
-            We are closing this issue because we did not hear back regarding additional details we needed to resolve this issue. If the issue persists and you are able to provide the missing clarification we need, you can respond here or create a new issue.
+    env:
+      LABEL: Waiting for Response
+      INACTIVE_DAYS: "14"
+      CLOSE_MESSAGE: |
+        We are closing this issue because we did not hear back regarding additional details we needed to resolve this issue. If the issue persists and you are able to provide the missing clarification we need, you can respond here or create a new issue.
 
-            We appreciate your understanding as we try to manage our number of open issues.
+        We appreciate your understanding as we try to manage our number of open issues.
+    steps:
+      - name: Close inactive issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          cutoff="$(date -u -d "${INACTIVE_DAYS} days ago" +"%Y-%m-%dT%H:%M:%SZ")"
+          issues_file="${RUNNER_TEMP}/issues-to-close.tsv"
+
+          echo "Looking for open issues labeled '${LABEL}' with no updates since ${cutoff}."
+
+          gh api --paginate --method GET "repos/${GITHUB_REPOSITORY}/issues" \
+            -f state=open \
+            -f labels="${LABEL}" \
+            -f per_page=100 \
+            --jq ".[] | select(.pull_request | not) | select(.updated_at < \"${cutoff}\") | [.number, .updated_at] | @tsv" \
+            > "${issues_file}"
+
+          if [[ ! -s "${issues_file}" ]]; then
+            echo "No issues to close."
+            exit 0
+          fi
+
+          issue_count="$(wc -l < "${issues_file}" | tr -d ' ')"
+          echo "Closing ${issue_count} issue(s)."
+
+          while IFS=$'\t' read -r issue_number updated_at; do
+            echo "Closing #${issue_number} (last updated ${updated_at})."
+
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${issue_number}/comments" \
+              -f body="${CLOSE_MESSAGE}" \
+              > /dev/null
+
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/issues/${issue_number}" \
+              -f state=closed \
+              -f state_reason=not_planned \
+              > /dev/null
+          done < "${issues_file}"
