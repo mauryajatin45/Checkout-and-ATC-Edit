@@ -46,7 +46,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       timerMode: formData.get("timerMode"),
       autoResetTimer: formData.get("autoResetTimer") === "true",
       backgroundColor: formData.get("backgroundColor"),
-      buttonText: formData.get("buttonText"),
+      textColor: formData.get("textColor"),
     });
   } else if (actionType === "checkout") {
     await updateCheckoutConfig(productId, {
@@ -257,7 +257,7 @@ export default function ProductConfig() {
               <div
                 style={{
                   backgroundColor: backgroundColor,
-                  color: "#fff",
+                  color: textColor,
                   padding: "16px",
                   borderRadius: "8px",
                   textAlign: "center",
@@ -270,7 +270,6 @@ export default function ProductConfig() {
                     14 : 15 : 52 : 43
                   </div>
                 )}
-                <Button>{buttonText}</Button>
               </div>
             </BlockStack>
           </Card>
