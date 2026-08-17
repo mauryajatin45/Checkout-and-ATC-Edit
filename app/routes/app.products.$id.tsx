@@ -47,6 +47,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       autoResetTimer: formData.get("autoResetTimer") === "true",
       backgroundColor: formData.get("backgroundColor"),
       textColor: formData.get("textColor"),
+      iconColor: formData.get("iconColor"),
     });
   } else if (actionType === "checkout") {
     await updateCheckoutConfig(productId, {
@@ -73,6 +74,7 @@ export default function ProductConfig() {
   const [autoResetTimer, setAutoResetTimer] = useState(product.stickyAtcConfig?.autoResetTimer ?? true);
   const [backgroundColor, setBackgroundColor] = useState(product?.stickyAtcConfig?.backgroundColor || "#B978D1");
   const [textColor, setTextColor] = useState(product?.stickyAtcConfig?.textColor || "#FFFFFF");
+  const [iconColor, setIconColor] = useState(product?.stickyAtcConfig?.iconColor || "#FFFFFF");
 
   // Checkout State
   const [checkoutEnabled, setCheckoutEnabled] = useState(product.checkoutConfig?.enabled ?? false);
@@ -97,6 +99,7 @@ export default function ProductConfig() {
         autoResetTimer: String(autoResetTimer),
         backgroundColor,
         textColor,
+        iconColor,
       },
       { method: "post" }
     );
@@ -239,6 +242,27 @@ export default function ProductConfig() {
                     />
                   </div>
                 </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ flex: 1 }}>
+                    <TextField
+                      label="Icon Color (Clock)"
+                      value={iconColor}
+                      onChange={setIconColor}
+                      autoComplete="off"
+                      disabled={!stickyEnabled || !timerEnabled}
+                    />
+                  </div>
+                  <div style={{ marginTop: '24px' }}>
+                    <input 
+                      type="color" 
+                      value={iconColor} 
+                      onChange={(e) => setIconColor(e.target.value)} 
+                      disabled={!stickyEnabled || !timerEnabled}
+                      style={{ width: '38px', height: '38px', padding: 0, border: 'none', cursor: 'pointer', borderRadius: '4px' }}
+                      title="Choose icon color"
+                    />
+                  </div>
+                </div>
                 <InlineStack align="end">
                   <Button onClick={handleSaveStickyAtc} variant="primary">
                     Save Sticky ATC Settings
@@ -258,15 +282,25 @@ export default function ProductConfig() {
                 style={{
                   backgroundColor: backgroundColor,
                   color: textColor,
-                  padding: "16px",
-                  borderRadius: "8px",
-                  textAlign: "center",
+                  padding: "10px 5%",
+                  boxSizing: "border-box",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
                 }}
               >
-                <Text variant="headingSm" as="h3">{headline}</Text>
-                <p>{subheadline}</p>
+                <div style={{ display: "flex", flexDirection: "column", textAlign: "left" }}>
+                  <Text variant="headingMd" as="h3">
+                    <span style={{ fontSize: "1.4rem" }}>{headline}</span>
+                  </Text>
+                  <p style={{ fontSize: "1rem", marginTop: "2px" }}>{subheadline}</p>
+                </div>
                 {timerEnabled && (
-                  <div style={{ margin: "10px 0", fontSize: "20px", fontWeight: "bold" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "1.8rem", fontWeight: "bold" }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
                     14 : 15 : 52 : 43
                   </div>
                 )}

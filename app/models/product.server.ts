@@ -28,6 +28,7 @@ export async function updateStickyAtcConfig(productId: string, data: any) {
       autoResetTimer: data.autoResetTimer !== undefined ? data.autoResetTimer : true,
       backgroundColor: data.backgroundColor,
       textColor: data.textColor,
+      iconColor: data.iconColor,
     },
     update: {
       enabled: data.enabled,
@@ -39,6 +40,7 @@ export async function updateStickyAtcConfig(productId: string, data: any) {
       autoResetTimer: data.autoResetTimer !== undefined ? data.autoResetTimer : true,
       backgroundColor: data.backgroundColor,
       textColor: data.textColor,
+      iconColor: data.iconColor,
     },
   });
 }

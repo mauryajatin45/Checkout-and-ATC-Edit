@@ -21,6 +21,9 @@ document.addEventListener("DOMContentLoaded", function () {
         widget.style.backgroundColor = config.backgroundColor || "#B978D1";
         widget.style.color = config.textColor || "#FFFFFF";
 
+        const innerContainer = document.createElement("div");
+        innerContainer.className = "sticky-atc-inner";
+
         const textContainer = document.createElement("div");
         textContainer.className = "sticky-atc-text";
 
@@ -38,13 +41,12 @@ document.addEventListener("DOMContentLoaded", function () {
           textContainer.appendChild(subheadline);
         }
 
-        widget.appendChild(textContainer);
+        innerContainer.appendChild(textContainer);
 
         if (config.timerEnabled) {
           const timer = document.createElement("div");
           timer.className = "sticky-atc-timer";
-          // Append timer directly to widget so it sits on the far right (due to space-between)
-          widget.appendChild(timer);
+          innerContainer.appendChild(timer);
 
           // Simple mock countdown timer loop for urgency
           let duration = 14 * 3600 + 15 * 60 + 52; // 14:15:52
@@ -64,7 +66,14 @@ document.addEventListener("DOMContentLoaded", function () {
             const h = Math.floor(duration / 3600);
             const m = Math.floor((duration % 3600) / 60);
             const s = duration % 60;
-            timer.innerText = `${String(h).padStart(2, '0')} : ${String(m).padStart(2, '0')} : ${String(s).padStart(2, '0')} : 00`;
+            const timeText = `${String(h).padStart(2, '0')} : ${String(m).padStart(2, '0')} : ${String(s).padStart(2, '0')} : 00`;
+            
+            const iconColor = config.iconColor || "#FFFFFF";
+            const svgIcon = `<svg style="margin-right: 8px;" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>`;
+            
+            timer.style.display = "flex";
+            timer.style.alignItems = "center";
+            timer.innerHTML = `${svgIcon}${timeText}`;
             duration--;
           }
 
@@ -72,6 +81,7 @@ document.addEventListener("DOMContentLoaded", function () {
           interval = setInterval(updateTimer, 1000);
         }
 
+        widget.appendChild(innerContainer);
         container.appendChild(widget);
       })
       .catch((err) => console.error("Error loading Sticky ATC config", err));
