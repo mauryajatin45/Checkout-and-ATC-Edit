@@ -1,17 +1,30 @@
+api_version = "2026-07"
+
+[[extensions]]
 name = "Judge.me Reviews & Branding"
-type = "checkout_ui_extension"
+handle = "judgeme-reviews-branding"
+uid = "a1c2f2b1-698a-022d-f1d8-162cb4e7328998c81da5"
+type = "ui_extension"
 
-[[targeting]]
+[[extensions.targeting]]
 target = "purchase.checkout.block.render"
-module = "./src/Checkout.tsx"
+module = "./src/index.js"
 
-[settings]
-[[settings.fields]]
+[[extensions.targeting]]
+target = "purchase.thank-you.block.render"
+module = "./src/index.js"
+
+[[extensions.targeting]]
+target = "customer-account.order-status.block.render"
+module = "./src/index.js"
+
+[extensions.settings]
+[[extensions.settings.fields]]
 key = "hide_header"
 type = "boolean"
 name = "Hide Checkout Header Elements"
 
-[[settings.fields]]
+[[extensions.settings.fields]]
 key = "hide_footer"
 type = "boolean"
 name = "Hide Checkout Footer Elements"

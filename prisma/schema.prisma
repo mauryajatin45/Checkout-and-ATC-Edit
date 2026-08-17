@@ -54,6 +54,7 @@ model StickyAtcConfig {
   timerEnabled     Boolean  @default(false)
   timerMode        String   @default("fixed_end")
   timerEndAt       DateTime?
+  autoResetTimer   Boolean  @default(true)
   backgroundColor  String?
   buttonText       String?
   product          Product  @relation(fields: [productId], references: [id])

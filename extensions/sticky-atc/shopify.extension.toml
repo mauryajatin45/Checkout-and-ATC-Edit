@@ -1,5 +1,6 @@
 name = "Sticky ATC & Timer"
 type = "theme"
+uid = "19a23e08-aa22-dc59-53e8-6b8f7ffebab018fb1dc4"
 
 [build]
 # No build step needed for basic theme extensions if not using esbuild

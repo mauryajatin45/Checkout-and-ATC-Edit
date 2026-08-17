@@ -7,7 +7,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // In a real application, this would fetch from an App Proxy or a public API endpoint.
   // For demonstration, we simulate the fetch with basic config.
-  fetch(`/a/checkout-atc/api/config?productId=${productId}`)
+  fetch(`/apps/checkout-atc/api/config?productId=${productId}`)
     .then((res) => res.json())
     .then((config) => {
       if (!config || !config.enabled) return;
@@ -36,8 +36,32 @@ document.addEventListener("DOMContentLoaded", function () {
       if (config.timerEnabled) {
         const timer = document.createElement("div");
         timer.className = "sticky-atc-timer";
-        timer.innerText = "14 : 15 : 52 : 43"; // Static for mock
         textContainer.appendChild(timer);
+
+        // Simple mock countdown timer loop for urgency
+        let duration = 14 * 3600 + 15 * 60 + 52; // 14:15:52
+        
+        let interval;
+        function updateTimer() {
+          if (duration <= 0) {
+            if (config.autoResetTimer !== false) {
+              duration = 14 * 3600 + 15 * 60 + 52; // Reset loop
+            } else {
+              timer.innerText = "00 : 00 : 00 : 00";
+              clearInterval(interval);
+              return;
+            }
+          }
+
+          const h = Math.floor(duration / 3600);
+          const m = Math.floor((duration % 3600) / 60);
+          const s = duration % 60;
+          timer.innerText = `${String(h).padStart(2, '0')} : ${String(m).padStart(2, '0')} : ${String(s).padStart(2, '0')} : 00`;
+          duration--;
+        }
+
+        updateTimer();
+        interval = setInterval(updateTimer, 1000);
       }
 
       widget.appendChild(textContainer);

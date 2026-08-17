@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useSubmit, useActionData } from "@remix-run/react";
@@ -44,6 +44,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       subheadline: formData.get("subheadline"),
       timerEnabled: formData.get("timerEnabled") === "true",
       timerMode: formData.get("timerMode"),
+      autoResetTimer: formData.get("autoResetTimer") === "true",
       backgroundColor: formData.get("backgroundColor"),
       buttonText: formData.get("buttonText"),
     });
@@ -60,6 +61,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
 export default function ProductConfig() {
   const { product } = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
   const submit = useSubmit();
 
   // Sticky ATC State
@@ -68,6 +70,7 @@ export default function ProductConfig() {
   const [subheadline, setSubheadline] = useState(product.stickyAtcConfig?.subheadline ?? "50% OFF + FREE Gifts!");
   const [timerEnabled, setTimerEnabled] = useState(product.stickyAtcConfig?.timerEnabled ?? false);
   const [timerMode, setTimerMode] = useState(product.stickyAtcConfig?.timerMode ?? "fixed_end");
+  const [autoResetTimer, setAutoResetTimer] = useState(product.stickyAtcConfig?.autoResetTimer ?? true);
   const [backgroundColor, setBackgroundColor] = useState(product.stickyAtcConfig?.backgroundColor ?? "#B978D1");
   const [buttonText, setButtonText] = useState(product.stickyAtcConfig?.buttonText ?? "Add to Cart");
 
@@ -75,6 +78,12 @@ export default function ProductConfig() {
   const [checkoutEnabled, setCheckoutEnabled] = useState(product.checkoutConfig?.enabled ?? false);
   const [showReviews, setShowReviews] = useState(product.checkoutConfig?.showReviews ?? true);
   const [showRating, setShowRating] = useState(product.checkoutConfig?.showRating ?? true);
+
+  useEffect(() => {
+    if (actionData?.success) {
+      shopify.toast.show("Settings saved successfully!");
+    }
+  }, [actionData]);
 
   const handleSaveStickyAtc = () => {
     submit(
@@ -85,6 +94,7 @@ export default function ProductConfig() {
         subheadline,
         timerEnabled: String(timerEnabled),
         timerMode,
+        autoResetTimer: String(autoResetTimer),
         backgroundColor,
         buttonText,
       },
@@ -179,6 +189,12 @@ export default function ProductConfig() {
                   ]}
                   value={timerMode}
                   onChange={setTimerMode}
+                  disabled={!timerEnabled || !stickyEnabled}
+                />
+                <Checkbox
+                  label="Auto-reset Timer (Never show 0)"
+                  checked={autoResetTimer}
+                  onChange={setAutoResetTimer}
                   disabled={!timerEnabled || !stickyEnabled}
                 />
                 <TextField
