@@ -1,16 +1,10 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
-// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
-// enough when changing adapters.
-// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
 datasource db {
-  provider = "sqlite"
-  url      = "file:dev.sqlite"
+  provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 model Session {
@@ -31,4 +25,45 @@ model Session {
   emailVerified       Boolean?  @default(false)
   refreshToken        String?
   refreshTokenExpires DateTime?
+}
+
+model Store {
+  id          String   @id @default(cuid())
+  shopDomain  String   @unique
+  accessToken String
+  createdAt   DateTime @default(now())
+  products    Product[]
+}
+
+model Product {
+  id               String   @id @default(cuid())
+  storeId          String
+  shopifyProductId String
+  title            String
+  stickyAtcConfig  StickyAtcConfig?
+  checkoutConfig   CheckoutConfig?
+  store            Store    @relation(fields: [storeId], references: [id])
+}
+
+model StickyAtcConfig {
+  id               String   @id @default(cuid())
+  productId        String   @unique
+  enabled          Boolean  @default(false)
+  headline         String?
+  subheadline      String?
+  timerEnabled     Boolean  @default(false)
+  timerMode        String   @default("fixed_end")
+  timerEndAt       DateTime?
+  backgroundColor  String?
+  buttonText       String?
+  product          Product  @relation(fields: [productId], references: [id])
+}
+
+model CheckoutConfig {
+  id               String   @id @default(cuid())
+  productId        String   @unique
+  enabled          Boolean  @default(false)
+  showReviews      Boolean  @default(true)
+  showRating       Boolean  @default(true)
+  product          Product  @relation(fields: [productId], references: [id])
 }

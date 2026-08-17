@@ -1,0 +1,17 @@
+name = "Judge.me Reviews & Branding"
+type = "checkout_ui_extension"
+
+[[targeting]]
+target = "purchase.checkout.block.render"
+module = "./src/Checkout.tsx"
+
+[settings]
+[[settings.fields]]
+key = "hide_header"
+type = "boolean"
+name = "Hide Checkout Header Elements"
+
+[[settings.fields]]
+key = "hide_footer"
+type = "boolean"
+name = "Hide Checkout Footer Elements"

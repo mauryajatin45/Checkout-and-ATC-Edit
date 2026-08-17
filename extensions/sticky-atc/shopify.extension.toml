@@ -1,0 +1,5 @@
+name = "Sticky ATC & Timer"
+type = "theme"
+
+[build]
+# No build step needed for basic theme extensions if not using esbuild

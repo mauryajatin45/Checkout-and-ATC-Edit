@@ -1,0 +1,14 @@
+<div id="sticky-atc-container" data-product-id="{{ product.id }}"></div>
+
+<script src="{{ 'sticky_atc.js' | asset_url }}" defer></script>
+<link rel="stylesheet" href="{{ 'sticky_atc.css' | asset_url }}">
+
+{% schema %}
+{
+  "name": "Sticky ATC & Timer",
+  "target": "body",
+  "javascript": "sticky_atc.js",
+  "stylesheet": "sticky_atc.css",
+  "settings": []
+}
+{% endschema %}
