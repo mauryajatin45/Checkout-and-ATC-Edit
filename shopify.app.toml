@@ -24,3 +24,8 @@ api_version = "2026-07"
 
 [auth]
 redirect_urls = [ ]
+
+[app_proxy]
+url = "https://checkoutandatc.zoyava.terzettoo.com"
+subpath = "checkout-atc"
+prefix = "apps"
