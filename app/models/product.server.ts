@@ -29,6 +29,8 @@ export async function updateStickyAtcConfig(productId: string, data: any) {
       backgroundColor: data.backgroundColor,
       textColor: data.textColor,
       iconColor: data.iconColor,
+      timerBoxColor: data.timerBoxColor,
+      timerBoxTextColor: data.timerBoxTextColor,
     },
     update: {
       enabled: data.enabled,
@@ -41,6 +43,8 @@ export async function updateStickyAtcConfig(productId: string, data: any) {
       backgroundColor: data.backgroundColor,
       textColor: data.textColor,
       iconColor: data.iconColor,
+      timerBoxColor: data.timerBoxColor,
+      timerBoxTextColor: data.timerBoxTextColor,
     },
   });
 }

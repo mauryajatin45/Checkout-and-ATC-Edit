@@ -48,6 +48,8 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       backgroundColor: formData.get("backgroundColor"),
       textColor: formData.get("textColor"),
       iconColor: formData.get("iconColor"),
+      timerBoxColor: formData.get("timerBoxColor"),
+      timerBoxTextColor: formData.get("timerBoxTextColor"),
     });
   } else if (actionType === "checkout") {
     await updateCheckoutConfig(productId, {
@@ -75,6 +77,8 @@ export default function ProductConfig() {
   const [backgroundColor, setBackgroundColor] = useState(product?.stickyAtcConfig?.backgroundColor || "#B978D1");
   const [textColor, setTextColor] = useState(product?.stickyAtcConfig?.textColor || "#FFFFFF");
   const [iconColor, setIconColor] = useState(product?.stickyAtcConfig?.iconColor || "#FFFFFF");
+  const [timerBoxColor, setTimerBoxColor] = useState(product?.stickyAtcConfig?.timerBoxColor || "#FFFFFF");
+  const [timerBoxTextColor, setTimerBoxTextColor] = useState(product?.stickyAtcConfig?.timerBoxTextColor || "#B978D1");
 
   // Checkout State
   const [checkoutEnabled, setCheckoutEnabled] = useState(product.checkoutConfig?.enabled ?? false);
@@ -100,6 +104,8 @@ export default function ProductConfig() {
         backgroundColor,
         textColor,
         iconColor,
+        timerBoxColor,
+        timerBoxTextColor,
       },
       { method: "post" }
     );
@@ -263,6 +269,48 @@ export default function ProductConfig() {
                     />
                   </div>
                 </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ flex: 1 }}>
+                    <TextField
+                      label="Timer Box Color"
+                      value={timerBoxColor}
+                      onChange={setTimerBoxColor}
+                      autoComplete="off"
+                      disabled={!stickyEnabled || !timerEnabled}
+                    />
+                  </div>
+                  <div style={{ marginTop: '24px' }}>
+                    <input 
+                      type="color" 
+                      value={timerBoxColor} 
+                      onChange={(e) => setTimerBoxColor(e.target.value)} 
+                      disabled={!stickyEnabled || !timerEnabled}
+                      style={{ width: '38px', height: '38px', padding: 0, border: 'none', cursor: 'pointer', borderRadius: '4px' }}
+                      title="Choose timer box color"
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ flex: 1 }}>
+                    <TextField
+                      label="Timer Box Text Color"
+                      value={timerBoxTextColor}
+                      onChange={setTimerBoxTextColor}
+                      autoComplete="off"
+                      disabled={!stickyEnabled || !timerEnabled}
+                    />
+                  </div>
+                  <div style={{ marginTop: '24px' }}>
+                    <input 
+                      type="color" 
+                      value={timerBoxTextColor} 
+                      onChange={(e) => setTimerBoxTextColor(e.target.value)} 
+                      disabled={!stickyEnabled || !timerEnabled}
+                      style={{ width: '38px', height: '38px', padding: 0, border: 'none', cursor: 'pointer', borderRadius: '4px' }}
+                      title="Choose timer box text color"
+                    />
+                  </div>
+                </div>
                 <InlineStack align="end">
                   <Button onClick={handleSaveStickyAtc} variant="primary">
                     Save Sticky ATC Settings
@@ -296,12 +344,26 @@ export default function ProductConfig() {
                   <p style={{ fontSize: "1rem", marginTop: "2px" }}>{subheadline}</p>
                 </div>
                 {timerEnabled && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "1.8rem", fontWeight: "bold" }}>
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="10"></circle>
-                      <polyline points="12 6 12 12 16 14"></polyline>
-                    </svg>
-                    14 : 15 : 52 : 43
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", fontSize: "1.8rem", fontWeight: "bold" }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+                      <div style={{ backgroundColor: timerBoxColor, color: timerBoxTextColor, padding: "8px 12px", borderRadius: "8px", lineHeight: 1 }}>14</div>
+                      <div style={{ fontSize: "0.6rem", fontWeight: "bold" }}>DAYS</div>
+                    </div>
+                    <div>:</div>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+                      <div style={{ backgroundColor: timerBoxColor, color: timerBoxTextColor, padding: "8px 12px", borderRadius: "8px", lineHeight: 1 }}>15</div>
+                      <div style={{ fontSize: "0.6rem", fontWeight: "bold" }}>HRS</div>
+                    </div>
+                    <div>:</div>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+                      <div style={{ backgroundColor: timerBoxColor, color: timerBoxTextColor, padding: "8px 12px", borderRadius: "8px", lineHeight: 1 }}>52</div>
+                      <div style={{ fontSize: "0.6rem", fontWeight: "bold" }}>MINS</div>
+                    </div>
+                    <div>:</div>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+                      <div style={{ backgroundColor: timerBoxColor, color: timerBoxTextColor, padding: "8px 12px", borderRadius: "8px", lineHeight: 1 }}>43</div>
+                      <div style={{ fontSize: "0.6rem", fontWeight: "bold" }}>SECS</div>
+                    </div>
                   </div>
                 )}
               </div>

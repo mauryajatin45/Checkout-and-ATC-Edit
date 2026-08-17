@@ -11,7 +11,8 @@
 
 .sticky-atc-inner {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 1rem;
   align-items: center;
   max-width: var(--page-width, 1200px);
   margin: 0 auto;
@@ -22,9 +23,35 @@
   font-family: inherit;
 }
 
+/* Tablet Breakpoint */
 @media screen and (min-width: 750px) {
   .sticky-atc-inner {
+    justify-content: space-between;
+    gap: 0;
+    padding: 10px 2.5rem;
+  }
+
+  .sticky-atc-headline {
+    font-size: 1.6rem;
+  }
+
+  .sticky-atc-subheadline {
+    font-size: 1.15rem;
+  }
+}
+
+/* Desktop Breakpoint */
+@media screen and (min-width: 990px) {
+  .sticky-atc-inner {
     padding: 10px 5rem;
+  }
+
+  .sticky-atc-headline {
+    font-size: 1.8rem;
+  }
+
+  .sticky-atc-subheadline {
+    font-size: 1.25rem;
   }
 }
 
@@ -34,18 +61,53 @@
 }
 
 .sticky-atc-headline {
-  font-size: 1.4rem;
+  font-size: 1.45rem;
   font-weight: bold;
 }
 
 .sticky-atc-subheadline {
-  font-size: 1rem;
+  font-size: 1.05rem;
   margin-top: 2px;
 }
 
 .sticky-atc-timer {
-  font-size: 1.8rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-weight: bold;
+}
+
+.sticky-atc-timer-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.sticky-atc-timer-box {
+  padding: 6px 10px;
+  border-radius: 6px;
+  line-height: 1;
+}
+
+.sticky-atc-timer-label {
+  font-size: 0.6rem;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+.sticky-atc-timer-colon {
+  font-size: inherit;
+  margin-bottom: 12px; /* vertically center it with boxes by offsetting the label height */
+}
+
+/* Base scale logic */
+.sticky-atc-timer { font-size: 1.6rem; }
+@media screen and (min-width: 750px) {
+  .sticky-atc-timer { font-size: 1.8rem; }
+}
+@media screen and (min-width: 990px) {
+  .sticky-atc-timer { font-size: 2.2rem; }
 }
 
 .sticky-atc-button {

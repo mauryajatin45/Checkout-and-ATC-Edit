@@ -58,6 +58,8 @@ model StickyAtcConfig {
   backgroundColor  String?  @default("#B978D1")
   textColor        String   @default("#FFFFFF")
   iconColor        String   @default("#FFFFFF")
+  timerBoxColor    String   @default("#FFFFFF")
+  timerBoxTextColor String  @default("#B978D1")
   buttonText       String?  @default("Add to Cart")
   product          Product  @relation(fields: [productId], references: [id])
 }

@@ -57,23 +57,38 @@ document.addEventListener("DOMContentLoaded", function () {
               if (config.autoResetTimer !== false) {
                 duration = 14 * 3600 + 15 * 60 + 52; // Reset loop
               } else {
-                timer.innerText = "00 : 00 : 00 : 00";
+                timer.innerHTML = "";
                 clearInterval(interval);
                 return;
               }
             }
 
-            const h = Math.floor(duration / 3600);
+            const d = Math.floor(duration / (3600 * 24));
+            // Calculate hours based on remaining duration. The mock starts with 14 hours, so let's just do h, m, s, and a mock 'days' or just Days, Hrs, Mins, Secs
+            // In the screenshot it's 13 DAYS, 20 HRS, 17 MINS, 56 SECS. 
+            const h = Math.floor((duration % (3600 * 24)) / 3600);
             const m = Math.floor((duration % 3600) / 60);
             const s = duration % 60;
-            const timeText = `${String(h).padStart(2, '0')} : ${String(m).padStart(2, '0')} : ${String(s).padStart(2, '0')} : 00`;
             
-            const iconColor = config.iconColor || "#FFFFFF";
-            const svgIcon = `<svg style="margin-right: 8px;" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>`;
+            const timerBoxColor = config.timerBoxColor || "#FFFFFF";
+            const timerBoxTextColor = config.timerBoxTextColor || "#B978D1";
             
-            timer.style.display = "flex";
-            timer.style.alignItems = "center";
-            timer.innerHTML = `${svgIcon}${timeText}`;
+            const createBox = (val, label) => `
+              <div class="sticky-atc-timer-col">
+                <div class="sticky-atc-timer-box" style="background-color: ${timerBoxColor}; color: ${timerBoxTextColor};">${String(val).padStart(2, '0')}</div>
+                <div class="sticky-atc-timer-label">${label}</div>
+              </div>
+            `;
+            
+            timer.innerHTML = `
+              ${createBox(13, 'DAYS')}
+              <div class="sticky-atc-timer-colon">:</div>
+              ${createBox(h, 'HRS')}
+              <div class="sticky-atc-timer-colon">:</div>
+              ${createBox(m, 'MINS')}
+              <div class="sticky-atc-timer-colon">:</div>
+              ${createBox(s, 'SECS')}
+            `;
             duration--;
           }
 
