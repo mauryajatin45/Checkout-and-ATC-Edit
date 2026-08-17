@@ -55,8 +55,9 @@ model StickyAtcConfig {
   timerMode        String   @default("fixed_end")
   timerEndAt       DateTime?
   autoResetTimer   Boolean  @default(true)
-  backgroundColor  String?
-  buttonText       String?
+  backgroundColor  String?  @default("#B978D1")
+  textColor        String   @default("#FFFFFF")
+  buttonText       String?  @default("Add to Cart")
   product          Product  @relation(fields: [productId], references: [id])
 }
 

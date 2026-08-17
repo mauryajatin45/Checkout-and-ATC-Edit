@@ -71,8 +71,8 @@ export default function ProductConfig() {
   const [timerEnabled, setTimerEnabled] = useState(product.stickyAtcConfig?.timerEnabled ?? false);
   const [timerMode, setTimerMode] = useState(product.stickyAtcConfig?.timerMode ?? "fixed_end");
   const [autoResetTimer, setAutoResetTimer] = useState(product.stickyAtcConfig?.autoResetTimer ?? true);
-  const [backgroundColor, setBackgroundColor] = useState(product.stickyAtcConfig?.backgroundColor ?? "#B978D1");
-  const [buttonText, setButtonText] = useState(product.stickyAtcConfig?.buttonText ?? "Add to Cart");
+  const [backgroundColor, setBackgroundColor] = useState(product?.stickyAtcConfig?.backgroundColor || "#B978D1");
+  const [textColor, setTextColor] = useState(product?.stickyAtcConfig?.textColor || "#FFFFFF");
 
   // Checkout State
   const [checkoutEnabled, setCheckoutEnabled] = useState(product.checkoutConfig?.enabled ?? false);
@@ -96,7 +96,7 @@ export default function ProductConfig() {
         timerMode,
         autoResetTimer: String(autoResetTimer),
         backgroundColor,
-        buttonText,
+        textColor,
       },
       { method: "post" }
     );
@@ -218,13 +218,27 @@ export default function ProductConfig() {
                     />
                   </div>
                 </div>
-                <TextField
-                  label="Button Text"
-                  value={buttonText}
-                  onChange={setButtonText}
-                  autoComplete="off"
-                  disabled={!stickyEnabled}
-                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ flex: 1 }}>
+                    <TextField
+                      label="Text Color"
+                      value={textColor}
+                      onChange={setTextColor}
+                      autoComplete="off"
+                      disabled={!stickyEnabled}
+                    />
+                  </div>
+                  <div style={{ marginTop: '24px' }}>
+                    <input 
+                      type="color" 
+                      value={textColor} 
+                      onChange={(e) => setTextColor(e.target.value)} 
+                      disabled={!stickyEnabled}
+                      style={{ width: '38px', height: '38px', padding: 0, border: 'none', cursor: 'pointer', borderRadius: '4px' }}
+                      title="Choose text color"
+                    />
+                  </div>
+                </div>
                 <InlineStack align="end">
                   <Button onClick={handleSaveStickyAtc} variant="primary">
                     Save Sticky ATC Settings

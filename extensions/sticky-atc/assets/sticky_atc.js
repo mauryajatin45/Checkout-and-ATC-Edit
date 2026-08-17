@@ -19,6 +19,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const widget = document.createElement("div");
         widget.className = "sticky-atc-widget";
         widget.style.backgroundColor = config.backgroundColor || "#B978D1";
+        widget.style.color = config.textColor || "#FFFFFF";
 
         const textContainer = document.createElement("div");
         textContainer.className = "sticky-atc-text";

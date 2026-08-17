@@ -17,8 +17,29 @@ export async function getProduct(id: string) {
 export async function updateStickyAtcConfig(productId: string, data: any) {
   return prisma.stickyAtcConfig.upsert({
     where: { productId },
-    create: { productId, ...data },
-    update: data,
+    create: {
+      productId,
+      enabled: data.enabled,
+      headline: data.headline,
+      subheadline: data.subheadline,
+      timerEnabled: data.timerEnabled,
+      timerMode: data.timerMode,
+      timerEndAt: data.timerEndAt ? new Date(data.timerEndAt) : null,
+      autoResetTimer: data.autoResetTimer !== undefined ? data.autoResetTimer : true,
+      backgroundColor: data.backgroundColor,
+      textColor: data.textColor,
+    },
+    update: {
+      enabled: data.enabled,
+      headline: data.headline,
+      subheadline: data.subheadline,
+      timerEnabled: data.timerEnabled,
+      timerMode: data.timerMode,
+      timerEndAt: data.timerEndAt ? new Date(data.timerEndAt) : null,
+      autoResetTimer: data.autoResetTimer !== undefined ? data.autoResetTimer : true,
+      backgroundColor: data.backgroundColor,
+      textColor: data.textColor,
+    },
   });
 }
 
