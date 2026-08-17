@@ -197,13 +197,27 @@ export default function ProductConfig() {
                   onChange={setAutoResetTimer}
                   disabled={!timerEnabled || !stickyEnabled}
                 />
-                <TextField
-                  label="Background Color"
-                  value={backgroundColor}
-                  onChange={setBackgroundColor}
-                  autoComplete="off"
-                  disabled={!stickyEnabled}
-                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ flex: 1 }}>
+                    <TextField
+                      label="Background Color"
+                      value={backgroundColor}
+                      onChange={setBackgroundColor}
+                      autoComplete="off"
+                      disabled={!stickyEnabled}
+                    />
+                  </div>
+                  <div style={{ marginTop: '24px' }}>
+                    <input 
+                      type="color" 
+                      value={backgroundColor} 
+                      onChange={(e) => setBackgroundColor(e.target.value)} 
+                      disabled={!stickyEnabled}
+                      style={{ width: '38px', height: '38px', padding: 0, border: 'none', cursor: 'pointer', borderRadius: '4px' }}
+                      title="Choose background color"
+                    />
+                  </div>
+                </div>
                 <TextField
                   label="Button Text"
                   value={buttonText}
