@@ -79,7 +79,7 @@ export default function(root, api) {
         baseUrl = `${api.shop.storefrontUrl}apps/checkout-atc/api/reviews`;
       }
 
-      const res = await fetch(`${baseUrl}?products=${productIds.join(",")}`);
+      const res = await fetch(`${baseUrl}?products=${productIds.join(",")}&shop=${api.shop.myshopifyDomain}`);
       if (res.ok) {
         const data = await res.json();
         currentReviews = data.reviews || [];

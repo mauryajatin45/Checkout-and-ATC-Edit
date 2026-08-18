@@ -23,19 +23,21 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   const allReviews: any[] = [];
+  const debugInfo: any = { requestedProducts: productIds, shopDomain, tokenConfigured: !!token, productConfigs: [] };
 
   for (const pid of productIds) {
-    // Reconstruct the full Shopify GraphQL ID to check our database
     const graphqlId = `gid://shopify/Product/${pid}`;
 
-    // Check if the widget is actually enabled for this product
     const productData = await prisma.product.findUnique({
       where: { id: graphqlId },
       include: { checkoutConfig: true },
     });
 
-    if (!productData?.checkoutConfig?.enabled) {
-      continue; // Skip this product if the widget is turned off
+    const isEnabled = !!productData?.checkoutConfig?.enabled;
+    debugInfo.productConfigs.push({ pid, isEnabled });
+
+    if (!isEnabled) {
+      continue;
     }
 
     const cacheKey = `judgeme_${shopDomain}_${pid}`;
@@ -54,19 +56,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       if (response.ok) {
         const data = await response.json();
         const reviews = data.reviews || [];
-        
-        // Cache for 10 minutes
         cache.set(cacheKey, { data: reviews, expiry: Date.now() + 10 * 60 * 1000 });
         allReviews.push(...reviews);
+      } else {
+        debugInfo.judgeMeError = await response.text();
       }
     } catch (err) {
       console.error(`Error fetching Judge.me reviews for product ${pid}`, err);
     }
   }
 
-  // Ensure CORS headers are sent so the checkout extension can fetch it
   return json(
-    { reviews: allReviews },
+    { reviews: allReviews, _debug: debugInfo },
     {
       headers: {
         "Access-Control-Allow-Origin": "*",

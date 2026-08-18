@@ -1,13 +1,13 @@
 api_version = "2026-07"
 
-[extensions.capabilities]
-network_access = true
-
 [[extensions]]
 name = "Judge.me Reviews & Branding"
 handle = "judgeme-reviews-branding"
 uid = "a1c2f2b1-698a-022d-f1d8-162cb4e7328998c81da5"
 type = "ui_extension"
+
+[extensions.capabilities]
+network_access = true
 
 [[extensions.targeting]]
 target = "purchase.checkout.block.render"
