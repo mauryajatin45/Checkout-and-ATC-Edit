@@ -49,8 +49,27 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     try {
+      // 1. Fetch the internal Judge.me product ID using the Shopify Product ID
+      const productLookup = await fetch(
+        `https://judge.me/api/v1/products/-1?api_token=${token}&shop_domain=${shopDomain}&external_id=${pid}`
+      );
+
+      if (!productLookup.ok) {
+        debugInfo.judgeMeError = await productLookup.text();
+        continue;
+      }
+
+      const productDataResult = await productLookup.json();
+      const judgeMeProductId = productDataResult?.product?.id;
+
+      if (!judgeMeProductId) {
+        debugInfo.judgeMeError = "Product found but no Judge.me ID returned.";
+        continue;
+      }
+
+      // 2. Fetch the reviews using the internal Judge.me product ID
       const response = await fetch(
-        `https://judge.me/api/v1/reviews?api_token=${token}&shop_domain=${shopDomain}&product_id=${pid}&per_page=5`
+        `https://judge.me/api/v1/reviews?api_token=${token}&shop_domain=${shopDomain}&product_id=${judgeMeProductId}&per_page=5`
       );
 
       if (response.ok) {
