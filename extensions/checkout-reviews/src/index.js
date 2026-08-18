@@ -71,7 +71,15 @@ export default function(root, api) {
     }
 
     try {
-      const res = await fetch(`${api.shop.storefrontUrl}apps/checkout-atc/api/reviews?products=${productIds.join(",")}`);
+      let baseUrl = api.settings?.current?.backend_url;
+      if (baseUrl) {
+        baseUrl = baseUrl.replace(/\/$/, "");
+        baseUrl = `${baseUrl}/api/reviews`;
+      } else {
+        baseUrl = `${api.shop.storefrontUrl}apps/checkout-atc/api/reviews`;
+      }
+
+      const res = await fetch(`${baseUrl}?products=${productIds.join(",")}`);
       if (res.ok) {
         const data = await res.json();
         currentReviews = data.reviews || [];

@@ -31,3 +31,8 @@ name = "Hide Checkout Header Elements"
 key = "hide_footer"
 type = "boolean"
 name = "Hide Checkout Footer Elements"
+
+[[extensions.settings.fields]]
+key = "backend_url"
+type = "single_line_text_field"
+name = "Backend API URL (e.g. https://checkoutandatc.zoyava.terzettoo.com)"
