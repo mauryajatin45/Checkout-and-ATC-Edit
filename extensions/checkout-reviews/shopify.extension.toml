@@ -1,5 +1,8 @@
 api_version = "2026-07"
 
+[extensions.capabilities]
+network_access = true
+
 [[extensions]]
 name = "Judge.me Reviews & Branding"
 handle = "judgeme-reviews-branding"

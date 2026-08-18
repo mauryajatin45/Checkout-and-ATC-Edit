@@ -71,7 +71,7 @@ export default function(root, api) {
     }
 
     try {
-      const res = await fetch(`/apps/checkout-atc/api/reviews?products=${productIds.join(",")}`);
+      const res = await fetch(`${api.shop.storefrontUrl}apps/checkout-atc/api/reviews?products=${productIds.join(",")}`);
       if (res.ok) {
         const data = await res.json();
         currentReviews = data.reviews || [];

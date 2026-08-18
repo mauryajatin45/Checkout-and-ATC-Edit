@@ -1,0 +1,31 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "87e4d410852fd6074edc3e172a855ea6"
+name = "Checkout and ATC - parrox.us"
+application_url = "https://checkoutandatc.parrox.us.terzettoo.com/"
+embedded = true
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_metaobject_definitions,write_metaobject_definitions,read_metaobjects,write_metaobjects,read_products,write_products,customer_read_metaobjects,unauthenticated_read_metaobjects"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[webhooks]
+api_version = "2026-07"
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = [ "app/uninstalled" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/scopes_update"
+  topics = [ "app/scopes_update" ]
+
+[auth]
+redirect_urls = [ ]
+
+[app_proxy]
+url = "https://checkoutandatc.parrox.us.terzettoo.com"
+subpath = "checkout-atc"
+prefix = "apps"

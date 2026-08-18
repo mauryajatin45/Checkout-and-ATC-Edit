@@ -1,5 +1,6 @@
 import { json } from "@remix-run/node";
 import type { LoaderFunctionArgs } from "@remix-run/node";
+import prisma from "../db.server";
 
 // Simple in-memory cache for demonstration. In production, use Redis or DB.
 const cache = new Map<string, { data: any; expiry: number }>();
@@ -24,6 +25,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const allReviews: any[] = [];
 
   for (const pid of productIds) {
+    // Reconstruct the full Shopify GraphQL ID to check our database
+    const graphqlId = `gid://shopify/Product/${pid}`;
+
+    // Check if the widget is actually enabled for this product
+    const productData = await prisma.product.findUnique({
+      where: { id: graphqlId },
+      include: { checkoutConfig: true },
+    });
+
+    if (!productData?.checkoutConfig?.enabled) {
+      continue; // Skip this product if the widget is turned off
+    }
+
     const cacheKey = `judgeme_${shopDomain}_${pid}`;
     const cached = cache.get(cacheKey);
 
