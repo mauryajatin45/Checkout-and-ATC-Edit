@@ -33,7 +33,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const response = await admin.graphql(
     `#graphql
       query getProducts {
-        products(first: 10, sortKey: UPDATED_AT, reverse: true) {
+        products(first: 250, sortKey: UPDATED_AT, reverse: true) {
           edges {
             node {
               id
