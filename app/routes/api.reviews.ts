@@ -22,7 +22,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     return json({ error: "Judge.me token not configured" }, { status: 500 });
   }
 
-  const allReviews: any[] = [];
+  let bestProductReviews: any[] = [];
+  let highestAvgRating = 0;
+  let highestReviewCount = 0;
+
   const debugInfo: any = { requestedProducts: productIds, shopDomain, tokenConfigured: !!token, productConfigs: [] };
 
   for (const pid of productIds) {
@@ -40,15 +43,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       continue;
     }
 
+    let productReviews: any[] = [];
     const cacheKey = `judgeme_${shopDomain}_${pid}`;
     const cached = cache.get(cacheKey);
 
     if (cached && cached.expiry > Date.now()) {
-      allReviews.push(...cached.data);
-      continue;
-    }
-
-    try {
+      productReviews = cached.data;
+    } else {
+      try {
       // 1. Fetch the internal Judge.me product ID using the Shopify Product ID
       const productLookup = await fetch(
         `https://judge.me/api/v1/products/-1?api_token=${token}&shop_domain=${shopDomain}&external_id=${pid}`
@@ -74,19 +76,41 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
       if (response.ok) {
         const data = await response.json();
-        const reviews = data.reviews || [];
-        cache.set(cacheKey, { data: reviews, expiry: Date.now() + 10 * 60 * 1000 });
-        allReviews.push(...reviews);
+        productReviews = data.reviews || [];
+        cache.set(cacheKey, { data: productReviews, expiry: Date.now() + 10 * 60 * 1000 });
       } else {
         debugInfo.judgeMeError = await response.text();
       }
     } catch (err) {
       console.error(`Error fetching Judge.me reviews for product ${pid}`, err);
     }
+    }
+    
+    // Evaluate reviews for this product
+    if (productReviews.length > 0) {
+      // 1. Filter out reviews with less than 4 stars
+      const filteredReviews = productReviews.filter((r: any) => r.rating >= 4);
+      
+      if (filteredReviews.length > 0) {
+        // 2. Calculate average rating of these valid reviews
+        const avgRating = filteredReviews.reduce((sum: number, r: any) => sum + r.rating, 0) / filteredReviews.length;
+        
+        // 3. Determine if this product has the highest rating so far
+        // Tie-breaker: if ratings are equal, prefer the one with more reviews
+        if (
+          avgRating > highestAvgRating || 
+          (avgRating === highestAvgRating && filteredReviews.length > highestReviewCount)
+        ) {
+          highestAvgRating = avgRating;
+          highestReviewCount = filteredReviews.length;
+          bestProductReviews = filteredReviews;
+        }
+      }
+    }
   }
 
   return json(
-    { reviews: allReviews, _debug: debugInfo },
+    { reviews: bestProductReviews, _debug: debugInfo },
     {
       headers: {
         "Access-Control-Allow-Origin": "*",
