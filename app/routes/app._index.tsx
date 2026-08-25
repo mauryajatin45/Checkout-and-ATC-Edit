@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useNavigate, useSubmit, useNavigation } from "@remix-run/react";
@@ -9,6 +9,8 @@ import {
   IndexTable,
   useIndexResourceState,
   Text,
+  IndexFilters,
+  useSetIndexFiltersMode,
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
@@ -124,20 +126,33 @@ export default function Index() {
   const { products } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
 
+  const [queryValue, setQueryValue] = useState("");
+  const filteredProducts = products.filter((product) =>
+    product.title.toLowerCase().includes(queryValue.toLowerCase())
+  );
+
   const resourceName = {
     singular: "product",
     plural: "products",
   };
 
   const { selectedResources, allResourcesSelected, handleSelectionChange, clearSelection } =
-    useIndexResourceState(products);
+    useIndexResourceState(filteredProducts);
 
   const submit = useSubmit();
   const nav = useNavigation();
   const isLoading = nav.state === "submitting" || nav.state === "loading";
 
-  // When action completes, you might want to clear selection, but the page data revalidates automatically.
-  // We can clear selection by tracking nav state, but for simplicity relying on native behaviour is fine.
+  const { mode, setMode } = useSetIndexFiltersMode();
+
+  const onQueryChange = (value: string) => {
+    setQueryValue(value);
+    clearSelection();
+  };
+  const onQueryClear = () => {
+    setQueryValue("");
+    clearSelection();
+  };
 
   const promotedBulkActions = [
     {
@@ -170,7 +185,7 @@ export default function Index() {
     },
   ];
 
-  const rowMarkup = products.map(
+  const rowMarkup = filteredProducts.map(
     ({ id, title, stickyAtcConfig, checkoutConfig }, index) => (
       <IndexTable.Row
         id={id}
@@ -200,9 +215,31 @@ export default function Index() {
       <Layout>
         <Layout.Section>
           <Card padding="0">
+            <IndexFilters
+              sortOptions={[]}
+              sortSelected={["title asc"]}
+              queryValue={queryValue}
+              queryPlaceholder="Search products"
+              onQueryChange={onQueryChange}
+              onQueryClear={onQueryClear}
+              onSort={() => {}}
+              cancelAction={{
+                onAction: onQueryClear,
+                disabled: false,
+                loading: false,
+              }}
+              tabs={[]}
+              selected={0}
+              onSelect={() => {}}
+              filters={[]}
+              appliedFilters={[]}
+              onClearAll={() => {}}
+              mode={mode}
+              setMode={setMode}
+            />
             <IndexTable
               resourceName={resourceName}
-              itemCount={products.length}
+              itemCount={filteredProducts.length}
               selectedItemsCount={
                 allResourcesSelected ? "All" : selectedResources.length
               }

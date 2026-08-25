@@ -48,14 +48,25 @@ document.addEventListener("DOMContentLoaded", function () {
           timer.className = "sticky-atc-timer";
           innerContainer.appendChild(timer);
 
-          // Simple mock countdown timer loop for urgency
-          let duration = 14 * 3600 + 15 * 60 + 52; // 14:15:52
+          // Simple countdown timer logic
+          let duration = 0;
+          
+          if (config.autoResetTimer) {
+            // 24-hour Auto-reset timer: Counts down to midnight of the current day
+            const now = new Date();
+            const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+            duration = Math.floor((endOfDay.getTime() - now.getTime()) / 1000);
+          } else {
+            // Default fixed urgency timer
+            duration = 13 * 3600 * 24 + 14 * 3600 + 15 * 60 + 52;
+          }
           
           let interval;
           function updateTimer() {
             if (duration <= 0) {
               if (config.autoResetTimer !== false) {
-                duration = 14 * 3600 + 15 * 60 + 52; // Reset loop
+                // Reset loop to 24 hours
+                duration = 24 * 3600;
               } else {
                 timer.innerHTML = "";
                 clearInterval(interval);
@@ -64,8 +75,6 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             const d = Math.floor(duration / (3600 * 24));
-            // Calculate hours based on remaining duration. The mock starts with 14 hours, so let's just do h, m, s, and a mock 'days' or just Days, Hrs, Mins, Secs
-            // In the screenshot it's 13 DAYS, 20 HRS, 17 MINS, 56 SECS. 
             const h = Math.floor((duration % (3600 * 24)) / 3600);
             const m = Math.floor((duration % 3600) / 60);
             const s = duration % 60;
@@ -80,15 +89,26 @@ document.addEventListener("DOMContentLoaded", function () {
               </div>
             `;
             
-            timer.innerHTML = `
-              ${createBox(13, 'DAYS')}
-              <div class="sticky-atc-timer-colon">:</div>
-              ${createBox(h, 'HRS')}
-              <div class="sticky-atc-timer-colon">:</div>
-              ${createBox(m, 'MINS')}
-              <div class="sticky-atc-timer-colon">:</div>
-              ${createBox(s, 'SECS')}
-            `;
+            if (config.autoResetTimer) {
+              timer.innerHTML = `
+                ${createBox(h, 'HRS')}
+                <div class="sticky-atc-timer-colon">:</div>
+                ${createBox(m, 'MINS')}
+                <div class="sticky-atc-timer-colon">:</div>
+                ${createBox(s, 'SECS')}
+              `;
+            } else {
+              timer.innerHTML = `
+                ${createBox(d, 'DAYS')}
+                <div class="sticky-atc-timer-colon">:</div>
+                ${createBox(h, 'HRS')}
+                <div class="sticky-atc-timer-colon">:</div>
+                ${createBox(m, 'MINS')}
+                <div class="sticky-atc-timer-colon">:</div>
+                ${createBox(s, 'SECS')}
+              `;
+            }
+            
             duration--;
           }
 
@@ -96,6 +116,9 @@ document.addEventListener("DOMContentLoaded", function () {
           interval = setInterval(updateTimer, 1000);
         }
 
+        // Prevent horizontal scrollbar caused by the 100vw CSS breakout hack
+        document.body.style.overflowX = 'hidden';
+        
         widget.appendChild(innerContainer);
         container.appendChild(widget);
       })

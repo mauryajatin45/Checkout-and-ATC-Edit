@@ -345,23 +345,27 @@ export default function ProductConfig() {
                 </div>
                 {timerEnabled && (
                   <div style={{ display: "flex", alignItems: "center", gap: "12px", fontSize: "1.8rem", fontWeight: "bold" }}>
+                    {!autoResetTimer && (
+                      <>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+                          <div style={{ backgroundColor: timerBoxColor, color: timerBoxTextColor, padding: "8px 12px", borderRadius: "8px", lineHeight: 1 }}>13</div>
+                          <div style={{ fontSize: "0.6rem", fontWeight: "bold" }}>DAYS</div>
+                        </div>
+                        <div>:</div>
+                      </>
+                    )}
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
-                      <div style={{ backgroundColor: timerBoxColor, color: timerBoxTextColor, padding: "8px 12px", borderRadius: "8px", lineHeight: 1 }}>14</div>
-                      <div style={{ fontSize: "0.6rem", fontWeight: "bold" }}>DAYS</div>
-                    </div>
-                    <div>:</div>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
-                      <div style={{ backgroundColor: timerBoxColor, color: timerBoxTextColor, padding: "8px 12px", borderRadius: "8px", lineHeight: 1 }}>15</div>
+                      <div style={{ backgroundColor: timerBoxColor, color: timerBoxTextColor, padding: "8px 12px", borderRadius: "8px", lineHeight: 1 }}>{autoResetTimer ? '23' : '14'}</div>
                       <div style={{ fontSize: "0.6rem", fontWeight: "bold" }}>HRS</div>
                     </div>
                     <div>:</div>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
-                      <div style={{ backgroundColor: timerBoxColor, color: timerBoxTextColor, padding: "8px 12px", borderRadius: "8px", lineHeight: 1 }}>52</div>
+                      <div style={{ backgroundColor: timerBoxColor, color: timerBoxTextColor, padding: "8px 12px", borderRadius: "8px", lineHeight: 1 }}>15</div>
                       <div style={{ fontSize: "0.6rem", fontWeight: "bold" }}>MINS</div>
                     </div>
                     <div>:</div>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
-                      <div style={{ backgroundColor: timerBoxColor, color: timerBoxTextColor, padding: "8px 12px", borderRadius: "8px", lineHeight: 1 }}>43</div>
+                      <div style={{ backgroundColor: timerBoxColor, color: timerBoxTextColor, padding: "8px 12px", borderRadius: "8px", lineHeight: 1 }}>52</div>
                       <div style={{ fontSize: "0.6rem", fontWeight: "bold" }}>SECS</div>
                     </div>
                   </div>
