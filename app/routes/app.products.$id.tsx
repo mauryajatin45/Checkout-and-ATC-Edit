@@ -16,7 +16,7 @@ import {
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
-import { getProduct, updateStickyAtcConfig, updateCheckoutConfig } from "../models/product.server";
+import { getProduct, updateStickyAtcConfig, updateCheckoutConfig, createCustomReview, deleteCustomReview } from "../models/product.server";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   await authenticate.admin(request);
@@ -56,10 +56,20 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       enabled: formData.get("enabled") === "true",
       showReviews: formData.get("showReviews") === "true",
       showRating: formData.get("showRating") === "true",
+      reviewsSource: formData.get("reviewsSource"),
     });
+  } else if (actionType === "addCustomReview") {
+    await createCustomReview(productId, {
+      name: formData.get("name"),
+      rating: parseInt(formData.get("rating") as string, 10),
+      title: formData.get("title"),
+      body: formData.get("body"),
+    });
+  } else if (actionType === "deleteCustomReview") {
+    await deleteCustomReview(formData.get("reviewId") as string);
   }
 
-  return json({ success: true });
+  return json({ success: true, actionType });
 };
 
 export default function ProductConfig() {
@@ -84,10 +94,27 @@ export default function ProductConfig() {
   const [checkoutEnabled, setCheckoutEnabled] = useState(product.checkoutConfig?.enabled ?? false);
   const [showReviews, setShowReviews] = useState(product.checkoutConfig?.showReviews ?? true);
   const [showRating, setShowRating] = useState(product.checkoutConfig?.showRating ?? true);
+  const [reviewsSource, setReviewsSource] = useState(product.checkoutConfig?.reviewsSource ?? "judgeme");
+
+  // Custom Review Form State
+  const [newReviewName, setNewReviewName] = useState("");
+  const [newReviewRating, setNewReviewRating] = useState("5");
+  const [newReviewTitle, setNewReviewTitle] = useState("");
+  const [newReviewBody, setNewReviewBody] = useState("");
 
   useEffect(() => {
     if (actionData?.success) {
-      shopify.toast.show("Settings saved successfully!");
+      if (actionData.actionType === "addCustomReview") {
+        setNewReviewName("");
+        setNewReviewRating("5");
+        setNewReviewTitle("");
+        setNewReviewBody("");
+        shopify.toast.show("Review added successfully!");
+      } else if (actionData.actionType === "deleteCustomReview") {
+        shopify.toast.show("Review deleted successfully!");
+      } else {
+        shopify.toast.show("Settings saved successfully!");
+      }
     }
   }, [actionData]);
 
@@ -118,6 +145,34 @@ export default function ProductConfig() {
         enabled: String(checkoutEnabled),
         showReviews: String(showReviews),
         showRating: String(showRating),
+        reviewsSource,
+      },
+      { method: "post" }
+    );
+  };
+
+  const handleAddCustomReview = () => {
+    if (!newReviewName || !newReviewBody) {
+      shopify.toast.show("Name and Review Text are required", { isError: true });
+      return;
+    }
+    submit(
+      {
+        actionType: "addCustomReview",
+        name: newReviewName,
+        rating: newReviewRating,
+        title: newReviewTitle,
+        body: newReviewBody,
+      },
+      { method: "post" }
+    );
+  };
+
+  const handleDeleteCustomReview = (reviewId: string) => {
+    submit(
+      {
+        actionType: "deleteCustomReview",
+        reviewId,
       },
       { method: "post" }
     );
@@ -153,6 +208,16 @@ export default function ProductConfig() {
                   onChange={setShowRating}
                   disabled={!checkoutEnabled}
                 />
+                <Select
+                  label="Review Source"
+                  options={[
+                    { label: "Judge.me API", value: "judgeme" },
+                    { label: "Custom Reviews", value: "custom" },
+                  ]}
+                  value={reviewsSource}
+                  onChange={setReviewsSource}
+                  disabled={!checkoutEnabled || !showReviews}
+                />
                 <InlineStack align="end">
                   <Button onClick={handleSaveCheckout} variant="primary">
                     Save Checkout Settings
@@ -160,6 +225,73 @@ export default function ProductConfig() {
                 </InlineStack>
               </BlockStack>
             </Card>
+
+            {reviewsSource === "custom" && (
+              <Card>
+                <BlockStack gap="400">
+                  <Text variant="headingMd" as="h2">Manage Custom Reviews</Text>
+                  
+                  {/* List existing custom reviews */}
+                  {product.customReviews?.length > 0 ? (
+                    <BlockStack gap="300">
+                      {product.customReviews.map((review: any) => (
+                        <Card key={review.id} background="bg-surface-secondary">
+                          <BlockStack gap="200">
+                            <InlineStack align="space-between">
+                              <Text variant="bodyMd" fontWeight="bold" as="span">{review.name} - {review.rating} Stars</Text>
+                              <Button tone="critical" variant="plain" onClick={() => handleDeleteCustomReview(review.id)}>Delete</Button>
+                            </InlineStack>
+                            {review.title && <Text variant="bodySm" fontWeight="bold" as="span">{review.title}</Text>}
+                            <Text variant="bodySm" as="span">{review.body}</Text>
+                          </BlockStack>
+                        </Card>
+                      ))}
+                    </BlockStack>
+                  ) : (
+                    <Text variant="bodyMd" as="span" tone="subdued">No custom reviews added yet.</Text>
+                  )}
+
+                  <hr style={{ margin: '10px 0', border: '1px solid #e1e3e5' }} />
+                  
+                  {/* Add new review form */}
+                  <Text variant="headingSm" as="h3">Add New Review</Text>
+                  <TextField
+                    label="Reviewer Name"
+                    value={newReviewName}
+                    onChange={setNewReviewName}
+                    autoComplete="off"
+                  />
+                  <Select
+                    label="Star Rating"
+                    options={[
+                      { label: "5 Stars", value: "5" },
+                      { label: "4 Stars", value: "4" },
+                      { label: "3 Stars", value: "3" },
+                      { label: "2 Stars", value: "2" },
+                      { label: "1 Star", value: "1" },
+                    ]}
+                    value={newReviewRating}
+                    onChange={setNewReviewRating}
+                  />
+                  <TextField
+                    label="Review Title (Optional)"
+                    value={newReviewTitle}
+                    onChange={setNewReviewTitle}
+                    autoComplete="off"
+                  />
+                  <TextField
+                    label="Review Text"
+                    value={newReviewBody}
+                    onChange={setNewReviewBody}
+                    autoComplete="off"
+                    multiline={3}
+                  />
+                  <InlineStack align="end">
+                    <Button onClick={handleAddCustomReview}>Add Review</Button>
+                  </InlineStack>
+                </BlockStack>
+              </Card>
+            )}
 
             {/* Sticky ATC Config */}
             <Card>

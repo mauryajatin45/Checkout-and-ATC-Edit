@@ -43,6 +43,7 @@ model Product {
   stickyAtcConfig  StickyAtcConfig?
   checkoutConfig   CheckoutConfig?
   store            Store    @relation(fields: [storeId], references: [id])
+  customReviews    CustomReview[]
 }
 
 model StickyAtcConfig {
@@ -70,5 +71,18 @@ model CheckoutConfig {
   enabled          Boolean  @default(false)
   showReviews      Boolean  @default(true)
   showRating       Boolean  @default(true)
+  reviewsSource    String   @default("judgeme")
   product          Product  @relation(fields: [productId], references: [id])
+}
+
+model CustomReview {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  name      String
+  rating    Int
+  title     String?
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

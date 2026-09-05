@@ -33,57 +33,71 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     const productData = await prisma.product.findUnique({
       where: { id: graphqlId },
-      include: { checkoutConfig: true },
+      include: { checkoutConfig: true, customReviews: true },
     });
 
     const isEnabled = !!productData?.checkoutConfig?.enabled;
-    debugInfo.productConfigs.push({ pid, isEnabled });
+    const reviewsSource = productData?.checkoutConfig?.reviewsSource || "judgeme";
+    debugInfo.productConfigs.push({ pid, isEnabled, reviewsSource });
 
     if (!isEnabled) {
       continue;
     }
 
     let productReviews: any[] = [];
-    const cacheKey = `judgeme_${shopDomain}_${pid}`;
-    const cached = cache.get(cacheKey);
-
-    if (cached && cached.expiry > Date.now()) {
-      productReviews = cached.data;
+    
+    if (reviewsSource === "custom") {
+      // Map Custom Reviews to the format expected by the frontend
+      productReviews = (productData?.customReviews || []).map(cr => ({
+        id: cr.id,
+        rating: cr.rating,
+        title: cr.title || "",
+        body: cr.body,
+        reviewer: { name: cr.name },
+        created_at: cr.createdAt.toISOString()
+      }));
     } else {
-      try {
-      // 1. Fetch the internal Judge.me product ID using the Shopify Product ID
-      const productLookup = await fetch(
-        `https://judge.me/api/v1/products/-1?api_token=${token}&shop_domain=${shopDomain}&external_id=${pid}`
-      );
+      const cacheKey = `judgeme_${shopDomain}_${pid}`;
+      const cached = cache.get(cacheKey);
 
-      if (!productLookup.ok) {
-        debugInfo.judgeMeError = await productLookup.text();
-        continue;
-      }
-
-      const productDataResult = await productLookup.json();
-      const judgeMeProductId = productDataResult?.product?.id;
-
-      if (!judgeMeProductId) {
-        debugInfo.judgeMeError = "Product found but no Judge.me ID returned.";
-        continue;
-      }
-
-      // 2. Fetch the reviews using the internal Judge.me product ID
-      const response = await fetch(
-        `https://judge.me/api/v1/reviews?api_token=${token}&shop_domain=${shopDomain}&product_id=${judgeMeProductId}&per_page=5`
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        productReviews = data.reviews || [];
-        cache.set(cacheKey, { data: productReviews, expiry: Date.now() + 10 * 60 * 1000 });
+      if (cached && cached.expiry > Date.now()) {
+        productReviews = cached.data;
       } else {
-        debugInfo.judgeMeError = await response.text();
+        try {
+        // 1. Fetch the internal Judge.me product ID using the Shopify Product ID
+        const productLookup = await fetch(
+          `https://judge.me/api/v1/products/-1?api_token=${token}&shop_domain=${shopDomain}&external_id=${pid}`
+        );
+
+        if (!productLookup.ok) {
+          debugInfo.judgeMeError = await productLookup.text();
+          continue;
+        }
+
+        const productDataResult = await productLookup.json();
+        const judgeMeProductId = productDataResult?.product?.id;
+
+        if (!judgeMeProductId) {
+          debugInfo.judgeMeError = "Product found but no Judge.me ID returned.";
+          continue;
+        }
+
+        // 2. Fetch the reviews using the internal Judge.me product ID
+        const response = await fetch(
+          `https://judge.me/api/v1/reviews?api_token=${token}&shop_domain=${shopDomain}&product_id=${judgeMeProductId}&per_page=5`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          productReviews = data.reviews || [];
+          cache.set(cacheKey, { data: productReviews, expiry: Date.now() + 10 * 60 * 1000 });
+        } else {
+          debugInfo.judgeMeError = await response.text();
+        }
+      } catch (err) {
+        console.error(`Error fetching Judge.me reviews for product ${pid}`, err);
       }
-    } catch (err) {
-      console.error(`Error fetching Judge.me reviews for product ${pid}`, err);
-    }
+      }
     }
     
     // Evaluate reviews for this product
