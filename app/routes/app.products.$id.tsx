@@ -37,36 +37,41 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
   const actionType = formData.get("actionType");
 
-  if (actionType === "stickyAtc") {
-    await updateStickyAtcConfig(productId, {
-      enabled: formData.get("enabled") === "true",
-      headline: formData.get("headline"),
-      subheadline: formData.get("subheadline"),
-      timerEnabled: formData.get("timerEnabled") === "true",
-      timerMode: formData.get("timerMode"),
-      autoResetTimer: formData.get("autoResetTimer") === "true",
-      backgroundColor: formData.get("backgroundColor"),
-      textColor: formData.get("textColor"),
-      iconColor: formData.get("iconColor"),
-      timerBoxColor: formData.get("timerBoxColor"),
-      timerBoxTextColor: formData.get("timerBoxTextColor"),
-    });
-  } else if (actionType === "checkout") {
-    await updateCheckoutConfig(productId, {
-      enabled: formData.get("enabled") === "true",
-      showReviews: formData.get("showReviews") === "true",
-      showRating: formData.get("showRating") === "true",
-      reviewsSource: formData.get("reviewsSource"),
-    });
-  } else if (actionType === "addCustomReview") {
-    await createCustomReview(productId, {
-      name: formData.get("name"),
-      rating: parseInt(formData.get("rating") as string, 10),
-      title: formData.get("title"),
-      body: formData.get("body"),
-    });
-  } else if (actionType === "deleteCustomReview") {
-    await deleteCustomReview(formData.get("reviewId") as string);
+  try {
+    if (actionType === "stickyAtc") {
+      await updateStickyAtcConfig(productId, {
+        enabled: formData.get("enabled") === "true",
+        headline: formData.get("headline"),
+        subheadline: formData.get("subheadline"),
+        timerEnabled: formData.get("timerEnabled") === "true",
+        timerMode: formData.get("timerMode"),
+        autoResetTimer: formData.get("autoResetTimer") === "true",
+        backgroundColor: formData.get("backgroundColor"),
+        textColor: formData.get("textColor"),
+        iconColor: formData.get("iconColor"),
+        timerBoxColor: formData.get("timerBoxColor"),
+        timerBoxTextColor: formData.get("timerBoxTextColor"),
+      });
+    } else if (actionType === "checkout") {
+      await updateCheckoutConfig(productId, {
+        enabled: formData.get("enabled") === "true",
+        showReviews: formData.get("showReviews") === "true",
+        showRating: formData.get("showRating") === "true",
+        reviewsSource: formData.get("reviewsSource"),
+      });
+    } else if (actionType === "addCustomReview") {
+      await createCustomReview(productId, {
+        name: formData.get("name") ? String(formData.get("name")) : "",
+        rating: parseInt(formData.get("rating") as string, 10) || 5,
+        title: formData.get("title") ? String(formData.get("title")) : null,
+        body: formData.get("body") ? String(formData.get("body")) : "",
+      });
+    } else if (actionType === "deleteCustomReview") {
+      await deleteCustomReview(formData.get("reviewId") as string);
+    }
+  } catch (error: any) {
+    console.error("Action error:", error);
+    return json({ success: false, actionType, error: error.message || String(error) }, { status: 400 });
   }
 
   return json({ success: true, actionType });
@@ -103,17 +108,21 @@ export default function ProductConfig() {
   const [newReviewBody, setNewReviewBody] = useState("");
 
   useEffect(() => {
-    if (actionData?.success) {
-      if (actionData.actionType === "addCustomReview") {
-        setNewReviewName("");
-        setNewReviewRating("5");
-        setNewReviewTitle("");
-        setNewReviewBody("");
-        shopify.toast.show("Review added successfully!");
-      } else if (actionData.actionType === "deleteCustomReview") {
-        shopify.toast.show("Review deleted successfully!");
-      } else {
-        shopify.toast.show("Settings saved successfully!");
+    if (actionData) {
+      if (actionData.success) {
+        if (actionData.actionType === "addCustomReview") {
+          setNewReviewName("");
+          setNewReviewRating("5");
+          setNewReviewTitle("");
+          setNewReviewBody("");
+          shopify.toast.show("Review added successfully!");
+        } else if (actionData.actionType === "deleteCustomReview") {
+          shopify.toast.show("Review deleted successfully!");
+        } else {
+          shopify.toast.show("Settings saved successfully!");
+        }
+      } else if (actionData.error) {
+        shopify.toast.show(`Error: ${actionData.error}`, { isError: true });
       }
     }
   }, [actionData]);
