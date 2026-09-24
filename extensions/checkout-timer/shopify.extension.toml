@@ -3,6 +3,7 @@ api_version = "2026-07"
 [[extensions]]
 name = "Checkout Timer"
 handle = "checkout-timer"
+uid = "f5fbef66-9be6-6eb7-5ceb-5784c1ea6116fc6919c5"
 type = "ui_extension"
 
 [extensions.capabilities]
