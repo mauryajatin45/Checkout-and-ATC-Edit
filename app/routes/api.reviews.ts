@@ -54,6 +54,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         title: cr.title || "",
         body: cr.body,
         reviewer: { name: cr.name },
+        imageUrl: cr.imageUrl,
         created_at: cr.createdAt.toISOString()
       }));
     } else {

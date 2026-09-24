@@ -13,10 +13,14 @@ import {
   Checkbox,
   Button,
   InlineStack,
+  DropZone,
+  Thumbnail,
+  LegacyStack,
 } from "@shopify/polaris";
+import { NoteIcon } from "@shopify/polaris-icons";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
-import { getProduct, updateStickyAtcConfig, updateCheckoutConfig, createCustomReview, deleteCustomReview } from "../models/product.server";
+import { getProduct, updateStickyAtcConfig, updateCheckoutConfig, createCustomReview, deleteCustomReview, uploadImageToCloudinary } from "../models/product.server";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   await authenticate.admin(request);
@@ -60,11 +64,18 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         reviewsSource: formData.get("reviewsSource"),
       });
     } else if (actionType === "addCustomReview") {
+      let imageUrl = null;
+      const imageBase64 = formData.get("imageBase64");
+      if (imageBase64 && typeof imageBase64 === "string" && imageBase64.startsWith("data:image")) {
+        imageUrl = await uploadImageToCloudinary(imageBase64);
+      }
+
       await createCustomReview(productId, {
         name: formData.get("name") ? String(formData.get("name")) : "",
         rating: parseInt(formData.get("rating") as string, 10) || 5,
         title: formData.get("title") ? String(formData.get("title")) : null,
         body: formData.get("body") ? String(formData.get("body")) : "",
+        imageUrl,
       });
     } else if (actionType === "deleteCustomReview") {
       await deleteCustomReview(formData.get("reviewId") as string);
@@ -106,15 +117,19 @@ export default function ProductConfig() {
   const [newReviewRating, setNewReviewRating] = useState("5");
   const [newReviewTitle, setNewReviewTitle] = useState("");
   const [newReviewBody, setNewReviewBody] = useState("");
+  const [newReviewImageBase64, setNewReviewImageBase64] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (actionData) {
+      setIsUploading(false);
       if (actionData.success) {
         if (actionData.actionType === "addCustomReview") {
           setNewReviewName("");
           setNewReviewRating("5");
           setNewReviewTitle("");
           setNewReviewBody("");
+          setNewReviewImageBase64("");
           shopify.toast.show("Review added successfully!");
         } else if (actionData.actionType === "deleteCustomReview") {
           shopify.toast.show("Review deleted successfully!");
@@ -126,6 +141,17 @@ export default function ProductConfig() {
       }
     }
   }, [actionData]);
+
+  const handleDropZoneDrop = (dropFiles: File[], acceptedFiles: File[], rejectedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setNewReviewImageBase64(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSaveStickyAtc = () => {
     submit(
@@ -165,6 +191,7 @@ export default function ProductConfig() {
       shopify.toast.show("Name and Review Text are required", { isError: true });
       return;
     }
+    setIsUploading(true);
     submit(
       {
         actionType: "addCustomReview",
@@ -172,6 +199,7 @@ export default function ProductConfig() {
         rating: newReviewRating,
         title: newReviewTitle,
         body: newReviewBody,
+        imageBase64: newReviewImageBase64,
       },
       { method: "post" }
     );
@@ -252,6 +280,11 @@ export default function ProductConfig() {
                             </InlineStack>
                             {review.title && <Text variant="bodySm" fontWeight="bold" as="span">{review.title}</Text>}
                             <Text variant="bodySm" as="span">{review.body}</Text>
+                            {review.imageUrl && (
+                              <div style={{ marginTop: '8px' }}>
+                                <img src={review.imageUrl} alt="Review" style={{ maxWidth: '100px', borderRadius: '4px' }} />
+                              </div>
+                            )}
                           </BlockStack>
                         </Card>
                       ))}
@@ -295,8 +328,23 @@ export default function ProductConfig() {
                     autoComplete="off"
                     multiline={3}
                   />
+                  <div style={{ marginTop: '10px' }}>
+                    <Text variant="bodyMd" as="span" fontWeight="medium">Review Image (Optional)</Text>
+                    <div style={{ marginTop: '4px' }}>
+                      <DropZone accept="image/*" type="image" onDrop={handleDropZoneDrop}>
+                        {newReviewImageBase64 ? (
+                          <LegacyStack alignment="center">
+                            <Thumbnail size="small" alt="Upload" source={newReviewImageBase64} />
+                            <div>Image selected</div>
+                          </LegacyStack>
+                        ) : (
+                          <DropZone.FileUpload actionHint="Accepts .gif, .jpg, and .png" />
+                        )}
+                      </DropZone>
+                    </div>
+                  </div>
                   <InlineStack align="end">
-                    <Button onClick={handleAddCustomReview}>Add Review</Button>
+                    <Button onClick={handleAddCustomReview} loading={isUploading}>Add Review</Button>
                   </InlineStack>
                 </BlockStack>
               </Card>

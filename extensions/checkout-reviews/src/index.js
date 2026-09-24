@@ -105,7 +105,7 @@ export default function() {
     const ratingRow = createEl('s-stack', { gap: 'none' });
     const ratingSummary = createEl('s-text', { type: 'strong' },
       '★'.repeat(roundedStars) + '☆'.repeat(5 - roundedStars) +
-      '  ' + avgRating + ' out of 5  ·  ' + reviews.length + (reviews.length === 1 ? ' review' : ' reviews')
+      '  ' + avgRating + ' out of 5'
     );
     ratingRow.appendChild(ratingSummary);
     headerStack.appendChild(ratingRow);
@@ -147,6 +147,15 @@ export default function() {
         '\u2014 ' + (review.reviewer?.name || 'Verified Buyer')
       );
       cardStack.appendChild(attrEl);
+      
+      // Image if available
+      if (review.imageUrl) {
+        const imgEl = createEl('s-image', { 
+          source: review.imageUrl,
+          'border-radius': 'base'
+        });
+        cardStack.appendChild(imgEl);
+      }
       
       card.appendChild(cardStack);
       container.appendChild(card);

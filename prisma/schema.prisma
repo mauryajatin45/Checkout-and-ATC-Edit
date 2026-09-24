@@ -83,6 +83,7 @@ model CustomReview {
   rating    Int
   title     String?
   body      String   @db.Text
+  imageUrl  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

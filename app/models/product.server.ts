@@ -69,6 +69,23 @@ export async function updateCheckoutConfig(productId: string, data: any) {
   });
 }
 
+import { v2 as cloudinary } from "cloudinary";
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+export async function uploadImageToCloudinary(base64Str: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader.upload(base64Str, { folder: "shopify_reviews" }, (error, result) => {
+      if (error) reject(error);
+      else resolve(result!.secure_url);
+    });
+  });
+}
+
 export async function createCustomReview(productId: string, data: any) {
   try {
     return await prisma.customReview.create({
@@ -78,6 +95,7 @@ export async function createCustomReview(productId: string, data: any) {
         rating: data.rating,
         title: data.title,
         body: data.body,
+        imageUrl: data.imageUrl,
       },
     });
   } catch (error: any) {
@@ -94,6 +112,7 @@ export async function createCustomReview(productId: string, data: any) {
           rating: data.rating,
           title: data.title,
           body: data.body,
+          imageUrl: data.imageUrl,
         },
       });
     }
