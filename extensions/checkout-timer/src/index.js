@@ -24,6 +24,7 @@ export default function() {
   let root;
   if (hasDocument) {
     root = document.createElement('div');
+    // Important: we append to the body, similar to checkout-reviews
     document.body.appendChild(root);
   } else {
     root = api.extension.root;
@@ -66,7 +67,6 @@ export default function() {
   function startTimer() {
     if (timerInterval) clearInterval(timerInterval);
     
-    // Check if there's a stored end time in sessionStorage (if available)
     let endTime = Date.now() + (timeRemaining * 1000);
     try {
       if (typeof sessionStorage !== 'undefined') {
@@ -102,8 +102,6 @@ export default function() {
     if (hasDocument) {
       timeTextEl.textContent = `${m}:${s}`;
     } else {
-      // In remote-ui, we'd need to re-render or use state, but without React we re-render the whole block or update the text node
-      // Actually, since we don't have state hooks here, re-rendering the whole tree is safest for remote-ui
       render();
     }
   }
@@ -119,36 +117,41 @@ export default function() {
 
     if (!settings || !settings.enabled) return;
 
+    // Use only proven tags from checkout-reviews: s-box, s-stack, s-text, s-image
     const block = createEl('s-box', {
       padding: 'base',
       'border-radius': 'base'
     });
     
-    // Remote-UI components don't support arbitrary backgroundColor string directly via simple props sometimes, 
-    // but s-box might support 'background' token. 
-    // To support exact hex codes, we might need an inline style if DOM, or just rely on Shopify's tokens.
-    // The user wants color editing. If it's a DOM proxy, inline styles work. 
-    // Let's use a standard inline style approach if possible, or fallback.
     if (hasDocument) {
       block.style.backgroundColor = settings.backgroundColor;
       block.style.color = settings.textColor;
-      block.style.border = `1px solid ${settings.textColor}40`; // slight border
+      block.style.border = `1px solid ${settings.textColor}40`;
     }
 
-    const inlineStack = createEl('s-inline-stack', {
-      blockAlignment: 'start', // align to top so icon aligns with first line
-      gap: 'tight'
-    });
+    // Outer stack to contain icon and text. Using s-stack as it is known to work.
+    const outerStack = createEl('s-stack', { gap: 'tight' });
+    if (hasDocument) {
+      // Force horizontal layout using inline styles since s-stack is normally vertical
+      outerStack.style.display = 'flex';
+      outerStack.style.flexDirection = 'row';
+      outerStack.style.alignItems = 'flex-start';
+    }
 
+    // Since s-icon might not exist, use a standard HTML element or raw SVG if hasDocument
     if (settings.iconEnabled) {
-      const icon = createEl('s-icon', {
-        source: 'success', // Shopify built-in checkmark
-        appearance: 'monochrome' // try to use textColor if supported
-      });
-      inlineStack.appendChild(icon);
+      if (hasDocument) {
+        const iconWrapper = document.createElement('div');
+        iconWrapper.innerHTML = `<svg viewBox="0 0 20 20" width="20" height="20" fill="${settings.textColor}" style="margin-right: 8px;"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM8 13.5l-3.5-3.5 1.41-1.41L8 10.67l6.09-6.09L15.5 6 8 13.5z" /></svg>`;
+        outerStack.appendChild(iconWrapper);
+      } else {
+        // Fallback for remote-ui
+        const iconFallback = createEl('s-text', {}, '✓ ');
+        outerStack.appendChild(iconFallback);
+      }
     }
 
-    const textStack = createEl('s-stack', { gap: 'none' }); // vertical stack for text + timer
+    const textStack = createEl('s-stack', { gap: 'none' });
     
     const labelText = createEl('s-text', { size: 'base' }, settings.text);
     textStack.appendChild(labelText);
@@ -158,9 +161,9 @@ export default function() {
     timeTextEl = createEl('s-text', { size: 'base', type: 'strong' }, `${m}:${s}`);
     
     textStack.appendChild(timeTextEl);
-    inlineStack.appendChild(textStack);
-    block.appendChild(inlineStack);
-
+    outerStack.appendChild(textStack);
+    
+    block.appendChild(outerStack);
     root.appendChild(block);
   }
 
