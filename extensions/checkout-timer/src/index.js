@@ -11,7 +11,9 @@ export default function() {
     if (hasDocument) {
       const el = document.createElement(tag);
       for (const [k, v] of Object.entries(attrs)) {
-        if (v !== undefined) el.setAttribute(k, v);
+        if (v !== undefined && v !== null) {
+          el.setAttribute(k, String(v));
+        }
       }
       if (textContent) el.textContent = textContent;
       return el;
@@ -23,9 +25,7 @@ export default function() {
 
   let root;
   if (hasDocument) {
-    root = document.createElement('div');
-    // Important: we append to the body, similar to checkout-reviews
-    document.body.appendChild(root);
+    root = document.body;
   } else {
     root = api.extension.root;
   }
@@ -36,7 +36,18 @@ export default function() {
 
   async function fetchSettings() {
     try {
-      const baseUrl = `${shop.storefrontUrl}apps/checkout-atc/api/timer`;
+      let storefrontUrl = shop.storefrontUrl;
+      if (storefrontUrl && !storefrontUrl.endsWith('/')) {
+        storefrontUrl += '/';
+      }
+      
+      let baseUrl = extension?.settings?.backend_url;
+      if (baseUrl) {
+        baseUrl = `${baseUrl.replace(/\/$/, '')}/api/timer`;
+      } else {
+        baseUrl = `${storefrontUrl}apps/checkout-atc/api/timer`;
+      }
+      
       const res = await fetch(`${baseUrl}?shop=${shop.myshopifyDomain}`);
       if (res.ok) {
         const data = await res.json();
@@ -108,7 +119,7 @@ export default function() {
 
   function render() {
     if (hasDocument) {
-      root.innerHTML = '';
+      while (root.firstChild) root.removeChild(root.firstChild);
     } else {
       for (const child of root.children) {
         root.removeChild(child);
@@ -117,41 +128,29 @@ export default function() {
 
     if (!settings || !settings.enabled) return;
 
-    // Use only proven tags from checkout-reviews: s-box, s-stack, s-text, s-image
-    const block = createEl('s-box', {
+    // Use a subdued background token since HEX colors are stripped by Shopify Checkout Sandbox
+    const blockAttrs = {
       padding: 'base',
-      'border-radius': 'base'
-    });
+      'border-radius': 'base',
+      background: 'subdued'
+    };
+    const block = createEl('s-box', blockAttrs);
     
-    if (hasDocument) {
-      block.style.backgroundColor = settings.backgroundColor;
-      block.style.color = settings.textColor;
-      block.style.border = `1px solid ${settings.textColor}40`;
-    }
+    // Use s-inline-stack for horizontal layout! (InlineStack in remote-ui)
+    const outerStack = createEl('s-inline-stack', { 
+      blockAlignment: 'start', 
+      inlineAlignment: 'start',
+      gap: 'tight' 
+    });
 
-    // Outer stack to contain icon and text. Using s-stack as it is known to work.
-    const outerStack = createEl('s-stack', { gap: 'tight' });
-    if (hasDocument) {
-      // Force horizontal layout using inline styles since s-stack is normally vertical
-      outerStack.style.display = 'flex';
-      outerStack.style.flexDirection = 'row';
-      outerStack.style.alignItems = 'flex-start';
-    }
-
-    // Since s-icon might not exist, use a standard HTML element or raw SVG if hasDocument
     if (settings.iconEnabled) {
-      if (hasDocument) {
-        const iconWrapper = document.createElement('div');
-        iconWrapper.innerHTML = `<svg viewBox="0 0 20 20" width="20" height="20" fill="${settings.textColor}" style="margin-right: 8px;"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM8 13.5l-3.5-3.5 1.41-1.41L8 10.67l6.09-6.09L15.5 6 8 13.5z" /></svg>`;
-        outerStack.appendChild(iconWrapper);
-      } else {
-        // Fallback for remote-ui
-        const iconFallback = createEl('s-text', {}, '✓ ');
-        outerStack.appendChild(iconFallback);
-      }
+      // Use s-text for the checkmark to avoid HTML tags
+      const iconFallback = createEl('s-text', { type: 'strong' }, '✓ ');
+      outerStack.appendChild(iconFallback);
     }
 
-    const textStack = createEl('s-stack', { gap: 'none' });
+    // Use s-inline-stack for text and timer so they are on the same line, or s-stack for multiline
+    const textStack = createEl('s-inline-stack', { gap: 'tight', blockAlignment: 'center' });
     
     const labelText = createEl('s-text', { size: 'base' }, settings.text);
     textStack.appendChild(labelText);
