@@ -33,6 +33,7 @@ export default function() {
   let settings = null;
   let timerInterval = null;
   let timeRemaining = 10 * 60; // default 10 mins in seconds
+  let fetchFailed = false;
 
   async function fetchSettings() {
     try {
@@ -45,6 +46,8 @@ export default function() {
       if (baseUrl) {
         baseUrl = `${baseUrl.replace(/\/$/, '')}/api/timer`;
       } else {
+        // Fallback to App Proxy. This often fails due to CORS on Shopify CDN,
+        // so the merchant MUST set the backend_url in the editor settings.
         baseUrl = `${storefrontUrl}apps/checkout-atc/api/timer`;
       }
       
@@ -58,6 +61,7 @@ export default function() {
       }
     } catch (e) {
       console.error("[Checkout Timer] Failed to fetch settings:", e);
+      fetchFailed = true;
     }
     
     if (!settings) {
@@ -65,7 +69,7 @@ export default function() {
         enabled: true,
         text: "Due to high demand your order is reserved for:",
         timerMinutes: 10,
-        backgroundColor: "#e8f8e8",
+        backgroundColor: "#e8f8e8", // not supported natively in restricted DOM
         textColor: "#000000",
         iconEnabled: true
       };
@@ -128,41 +132,40 @@ export default function() {
 
     if (!settings || !settings.enabled) return;
 
-    // Use a subdued background token since HEX colors are stripped by Shopify Checkout Sandbox
+    // Use only supported components from checkout-reviews
     const blockAttrs = {
       padding: 'base',
       'border-radius': 'base',
       background: 'subdued'
     };
     const block = createEl('s-box', blockAttrs);
-    
-    // Use s-inline-stack for horizontal layout! (InlineStack in remote-ui)
-    const outerStack = createEl('s-inline-stack', { 
-      blockAlignment: 'start', 
-      inlineAlignment: 'start',
-      gap: 'tight' 
-    });
+
+    // Using s-text nesting to force horizontal layout without unsupported components!
+    const containerText = createEl('s-text', { size: 'base' });
 
     if (settings.iconEnabled) {
-      // Use s-text for the checkmark to avoid HTML tags
-      const iconFallback = createEl('s-text', { type: 'strong' }, '✓ ');
-      outerStack.appendChild(iconFallback);
+      const iconEl = createEl('s-text', { type: 'strong' }, '✓ ');
+      containerText.appendChild(iconEl);
     }
 
-    // Use s-inline-stack for text and timer so they are on the same line, or s-stack for multiline
-    const textStack = createEl('s-inline-stack', { gap: 'tight', blockAlignment: 'center' });
-    
-    const labelText = createEl('s-text', { size: 'base' }, settings.text);
-    textStack.appendChild(labelText);
+    // Wrap the label text in an s-text so it displays inline
+    const labelEl = createEl('s-text', {}, settings.text + ' ');
+    containerText.appendChild(labelEl);
 
+    // Render the time part
     const m = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
     const s = (timeRemaining % 60).toString().padStart(2, '0');
-    timeTextEl = createEl('s-text', { size: 'base', type: 'strong' }, `${m}:${s}`);
+    timeTextEl = createEl('s-text', { type: 'strong' }, `${m}:${s}`);
     
-    textStack.appendChild(timeTextEl);
-    outerStack.appendChild(textStack);
+    containerText.appendChild(timeTextEl);
     
-    block.appendChild(outerStack);
+    if (fetchFailed) {
+      // Show warning so the merchant knows to add the Backend URL
+      const errorEl = createEl('s-text', { size: 'small', appearance: 'critical' }, ' (Warning: Configure Backend URL in Settings)');
+      containerText.appendChild(errorEl);
+    }
+
+    block.appendChild(containerText);
     root.appendChild(block);
   }
 
