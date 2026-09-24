@@ -3,7 +3,7 @@ export default function() {
   const api = globalThis.shopify;
   if (!api) return;
 
-  const { shop, extension } = api;
+  const { shop, extension, settings: extSettings } = api;
 
   const hasDocument = typeof document !== 'undefined' && document.body;
 
@@ -30,9 +30,9 @@ export default function() {
     root = api.extension.root;
   }
 
-  let settings = null;
+  let timerSettings = null;
   let timerInterval = null;
-  let timeRemaining = 10 * 60; // default 10 mins in seconds
+  let timeRemaining = 10 * 60;
   let fetchFailed = false;
 
   async function fetchSettings() {
@@ -42,12 +42,13 @@ export default function() {
         storefrontUrl += '/';
       }
       
-      let baseUrl = extension?.settings?.backend_url;
+      // FIXED: read settings correctly from api.settings.current
+      const settingsVal = extSettings?.current || extSettings?.value || {};
+      let baseUrl = settingsVal?.backend_url;
+      
       if (baseUrl) {
         baseUrl = `${baseUrl.replace(/\/$/, '')}/api/timer`;
       } else {
-        // Fallback to App Proxy. This often fails due to CORS on Shopify CDN,
-        // so the merchant MUST set the backend_url in the editor settings.
         baseUrl = `${storefrontUrl}apps/checkout-atc/api/timer`;
       }
       
@@ -55,21 +56,24 @@ export default function() {
       if (res.ok) {
         const data = await res.json();
         if (data.settings) {
-          settings = data.settings;
-          timeRemaining = settings.timerMinutes * 60;
+          timerSettings = data.settings;
+          timeRemaining = timerSettings.timerMinutes * 60;
+          fetchFailed = false;
         }
+      } else {
+        fetchFailed = true;
       }
     } catch (e) {
       console.error("[Checkout Timer] Failed to fetch settings:", e);
       fetchFailed = true;
     }
     
-    if (!settings) {
-      settings = {
+    if (!timerSettings) {
+      timerSettings = {
         enabled: true,
         text: "Due to high demand your order is reserved for:",
         timerMinutes: 10,
-        backgroundColor: "#e8f8e8", // not supported natively in restricted DOM
+        backgroundColor: "#e8f8e8",
         textColor: "#000000",
         iconEnabled: true
       };
@@ -130,29 +134,35 @@ export default function() {
       }
     }
 
-    if (!settings || !settings.enabled) return;
+    if (!timerSettings || !timerSettings.enabled) return;
 
-    // Use only supported components from checkout-reviews
-    const blockAttrs = {
-      padding: 'base',
-      'border-radius': 'base',
-      background: 'subdued'
-    };
-    const block = createEl('s-box', blockAttrs);
-
-    // Using s-text nesting to force horizontal layout without unsupported components!
-    const containerText = createEl('s-text', { size: 'base' });
-
-    if (settings.iconEnabled) {
-      const iconEl = createEl('s-text', { type: 'strong' }, '✓ ');
-      containerText.appendChild(iconEl);
+    // Use s-banner instead of s-box. Banner naturally supports colors via status.
+    // Map custom colors to standard Shopify status if possible.
+    let status = 'info';
+    const bg = (timerSettings.backgroundColor || '').toLowerCase();
+    if (bg.includes('e8f8e8') || bg.includes('green') || timerSettings.iconEnabled) {
+      status = 'success'; // Gives a nice green background + icon natively
+    } else if (bg.includes('red') || bg.includes('critical')) {
+      status = 'critical';
+    } else if (bg.includes('yellow') || bg.includes('warning')) {
+      status = 'warning';
     }
 
-    // Wrap the label text in an s-text so it displays inline
-    const labelEl = createEl('s-text', {}, settings.text + ' ');
+    // We disable the banner icon if user doesn't want it, otherwise we let the banner handle it
+    const bannerAttrs = {
+      status: status
+    };
+    
+    const banner = createEl('s-banner', bannerAttrs);
+
+    // Container for text
+    const containerText = createEl('s-text', { size: 'base' });
+
+    // The text
+    const labelEl = createEl('s-text', {}, timerSettings.text + ' ');
     containerText.appendChild(labelEl);
 
-    // Render the time part
+    // The timer
     const m = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
     const s = (timeRemaining % 60).toString().padStart(2, '0');
     timeTextEl = createEl('s-text', { type: 'strong' }, `${m}:${s}`);
@@ -160,13 +170,12 @@ export default function() {
     containerText.appendChild(timeTextEl);
     
     if (fetchFailed) {
-      // Show warning so the merchant knows to add the Backend URL
-      const errorEl = createEl('s-text', { size: 'small', appearance: 'critical' }, ' (Warning: Configure Backend URL in Settings)');
+      const errorEl = createEl('s-text', { size: 'small', appearance: 'critical' }, ' (Error connecting to backend)');
       containerText.appendChild(errorEl);
     }
 
-    block.appendChild(containerText);
-    root.appendChild(block);
+    banner.appendChild(containerText);
+    root.appendChild(banner);
   }
 
   fetchSettings();
