@@ -42,7 +42,6 @@ export default function() {
         storefrontUrl += '/';
       }
       
-      // FIXED: read settings correctly from api.settings.current
       const settingsVal = extSettings?.current || extSettings?.value || {};
       let baseUrl = settingsVal?.backend_url;
       
@@ -75,7 +74,8 @@ export default function() {
         timerMinutes: 10,
         backgroundColor: "#e8f8e8",
         textColor: "#000000",
-        iconEnabled: true
+        iconEnabled: true,
+        fontSize: "base"
       };
     }
     
@@ -136,33 +136,27 @@ export default function() {
 
     if (!timerSettings || !timerSettings.enabled) return;
 
-    // Use s-banner instead of s-box. Banner naturally supports colors via status.
-    // Map custom colors to standard Shopify status if possible.
-    let status = 'info';
+    let tone = 'info';
     const bg = (timerSettings.backgroundColor || '').toLowerCase();
     if (bg.includes('e8f8e8') || bg.includes('green') || timerSettings.iconEnabled) {
-      status = 'success'; // Gives a nice green background + icon natively
+      tone = 'success';
     } else if (bg.includes('red') || bg.includes('critical')) {
-      status = 'critical';
+      tone = 'critical';
     } else if (bg.includes('yellow') || bg.includes('warning')) {
-      status = 'warning';
+      tone = 'warning';
     }
 
-    // We disable the banner icon if user doesn't want it, otherwise we let the banner handle it
-    const bannerAttrs = {
-      status: status
-    };
-    
+    // 2026 Shopify Checkout UI Banner uses 'tone' prop
+    const bannerAttrs = { tone };
     const banner = createEl('s-banner', bannerAttrs);
 
-    // Container for text
-    const containerText = createEl('s-text', { size: 'base' });
+    // Apply the font size from settings!
+    const fontSize = timerSettings.fontSize || 'base';
+    const containerText = createEl('s-text', { size: fontSize });
 
-    // The text
     const labelEl = createEl('s-text', {}, timerSettings.text + ' ');
     containerText.appendChild(labelEl);
 
-    // The timer
     const m = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
     const s = (timeRemaining % 60).toString().padStart(2, '0');
     timeTextEl = createEl('s-text', { type: 'strong' }, `${m}:${s}`);

@@ -58,13 +58,13 @@ export async function updateCheckoutConfig(productId: string, data: any) {
       enabled: data.enabled,
       showReviews: data.showReviews,
       showRating: data.showRating,
-      reviewsSource: data.reviewsSource
+      reviewsSource: data.reviewsSource, checkoutImageUrl: data.checkoutImageUrl
     },
     update: {
       enabled: data.enabled,
       showReviews: data.showReviews,
       showRating: data.showRating,
-      reviewsSource: data.reviewsSource
+      reviewsSource: data.reviewsSource, checkoutImageUrl: data.checkoutImageUrl
     },
   });
 }

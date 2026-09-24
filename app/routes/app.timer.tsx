@@ -9,7 +9,7 @@ import {
   BlockStack,
   Text,
   TextField,
-  Checkbox,
+  Checkbox, Select,
   Button,
   InlineStack,
   ColorPicker,
@@ -63,6 +63,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       backgroundColor: formData.get("backgroundColor"),
       textColor: formData.get("textColor"),
       iconEnabled: formData.get("iconEnabled") === "true",
+      fontSize: formData.get("fontSize") || "base",
     });
     return json({ success: true });
   } catch (error: any) {
@@ -82,6 +83,7 @@ export default function CheckoutTimer() {
   const [backgroundColor, setBackgroundColor] = useState(settings?.backgroundColor || "#e8f8e8");
   const [textColor, setTextColor] = useState(settings?.textColor || "#000000");
   const [iconEnabled, setIconEnabled] = useState(settings?.iconEnabled ?? true);
+  const [fontSize, setFontSize] = useState(settings?.fontSize || "base");
 
   const [bgColorHsb, setBgColorHsb] = useState(hexToHsb(backgroundColor));
   const [textColorHsb, setTextColorHsb] = useState(hexToHsb(textColor));
@@ -113,10 +115,18 @@ export default function CheckoutTimer() {
         backgroundColor,
         textColor,
         iconEnabled: String(iconEnabled),
+        fontSize,
       },
       { method: "post" }
     );
   };
+
+  const fontOptions = [
+    { label: "Small", value: "small" },
+    { label: "Medium / Base", value: "base" },
+    { label: "Large", value: "large" },
+    { label: "Extra Large", value: "extraLarge" },
+  ];
 
   return (
     <Page>
@@ -156,15 +166,22 @@ export default function CheckoutTimer() {
                 checked={iconEnabled}
                 onChange={setIconEnabled}
               />
+              
+              <Select
+                label="Font Size"
+                options={fontOptions}
+                onChange={setFontSize}
+                value={fontSize}
+              />
 
               <InlineStack gap="400">
                 <BlockStack gap="200">
-                  <Text as="span" variant="bodyMd">Background Color</Text>
+                  <Text as="span" variant="bodyMd">Background Color (Checkout overrides this with native Banner colors)</Text>
                   <ColorPicker onChange={setBgColorHsb} color={bgColorHsb} />
                   <TextField label="Hex" value={backgroundColor} onChange={setBackgroundColor} autoComplete="off" />
                 </BlockStack>
                 <BlockStack gap="200">
-                  <Text as="span" variant="bodyMd">Text Color</Text>
+                  <Text as="span" variant="bodyMd">Text Color (Checkout overrides this)</Text>
                   <ColorPicker onChange={setTextColorHsb} color={textColorHsb} />
                   <TextField label="Hex" value={textColor} onChange={setTextColor} autoComplete="off" />
                 </BlockStack>

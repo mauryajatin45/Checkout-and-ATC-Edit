@@ -46,6 +46,8 @@ model CheckoutTimerSettings {
   backgroundColor String   @default("#e8f8e8")
   textColor       String   @default("#000000")
   iconEnabled     Boolean  @default(true)
+  fontSize        String   @default("base")
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
@@ -87,6 +89,8 @@ model CheckoutConfig {
   showReviews      Boolean  @default(true)
   showRating       Boolean  @default(true)
   reviewsSource    String   @default("judgeme")
+  checkoutImageUrl String? 
+
   product          Product  @relation(fields: [productId], references: [id])
 }
 

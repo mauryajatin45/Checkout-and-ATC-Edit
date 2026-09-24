@@ -57,25 +57,28 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         timerBoxTextColor: formData.get("timerBoxTextColor"),
       });
     } else if (actionType === "checkout") {
+      let checkoutImageUrl = formData.get("existingImageUrl") || null;
+      const imageBase64 = formData.get("checkoutImageBase64");
+      if (imageBase64 && typeof imageBase64 === "string" && imageBase64.startsWith("data:image")) {
+        checkoutImageUrl = await uploadImageToCloudinary(imageBase64);
+      } else if (formData.get("removeImage") === "true") {
+        checkoutImageUrl = null;
+      }
+
       await updateCheckoutConfig(productId, {
         enabled: formData.get("enabled") === "true",
         showReviews: formData.get("showReviews") === "true",
         showRating: formData.get("showRating") === "true",
         reviewsSource: formData.get("reviewsSource"),
+        checkoutImageUrl: checkoutImageUrl,
       });
     } else if (actionType === "addCustomReview") {
-      let imageUrl = null;
-      const imageBase64 = formData.get("imageBase64");
-      if (imageBase64 && typeof imageBase64 === "string" && imageBase64.startsWith("data:image")) {
-        imageUrl = await uploadImageToCloudinary(imageBase64);
-      }
-
       await createCustomReview(productId, {
         name: formData.get("name") ? String(formData.get("name")) : "",
         rating: parseInt(formData.get("rating") as string, 10) || 5,
         title: formData.get("title") ? String(formData.get("title")) : null,
         body: formData.get("body") ? String(formData.get("body")) : "",
-        imageUrl,
+        imageUrl: null,
       });
     } else if (actionType === "deleteCustomReview") {
       await deleteCustomReview(formData.get("reviewId") as string);
@@ -328,27 +331,55 @@ export default function ProductConfig() {
                     autoComplete="off"
                     multiline={3}
                   />
-                  <div style={{ marginTop: '10px' }}>
-                    <Text variant="bodyMd" as="span" fontWeight="medium">Review Image (Optional)</Text>
-                    <div style={{ marginTop: '4px' }}>
-                      <DropZone accept="image/*" type="image" onDrop={handleDropZoneDrop}>
-                        {newReviewImageBase64 ? (
-                          <LegacyStack alignment="center">
-                            <Thumbnail size="small" alt="Upload" source={newReviewImageBase64} />
-                            <div>Image selected</div>
-                          </LegacyStack>
-                        ) : (
-                          <DropZone.FileUpload actionHint="Accepts .gif, .jpg, and .png" />
-                        )}
-                      </DropZone>
-                    </div>
-                  </div>
+                  
                   <InlineStack align="end">
                     <Button onClick={handleAddCustomReview} loading={isUploading}>Add Review</Button>
                   </InlineStack>
                 </BlockStack>
               </Card>
             )}
+
+            
+            {/* Checkout Image Settings */}
+            <Card>
+              <BlockStack gap="400">
+                <Text variant="headingMd" as="h2">Checkout Product Image</Text>
+                <Text as="p">Upload a 9:16 portrait image for this product to be displayed on the checkout page when enabled.</Text>
+                
+                <div style={{ marginTop: '10px' }}>
+                    <div style={{ marginTop: '4px' }}>
+                      <DropZone accept="image/*" type="image" onDrop={handleDropZoneDrop}>
+                        {checkoutImageBase64 ? (
+                          <LegacyStack alignment="center">
+                            <Thumbnail size="large" alt="Upload" source={checkoutImageBase64} />
+                            <div>New Image selected</div>
+                          </LegacyStack>
+                        ) : (product.checkoutConfig?.checkoutImageUrl && !removeCheckoutImage) ? (
+                          <LegacyStack alignment="center">
+                            <Thumbnail size="large" alt="Current Image" source={product.checkoutConfig.checkoutImageUrl} />
+                            <div>Current Image</div>
+                          </LegacyStack>
+                        ) : (
+                          <DropZone.FileUpload actionHint="Accepts .gif, .jpg, and .png (9:16 recommended)" />
+                        )}
+                      </DropZone>
+                    </div>
+                </div>
+
+                {(product.checkoutConfig?.checkoutImageUrl || checkoutImageBase64) && !removeCheckoutImage && (
+                  <InlineStack>
+                    <Button tone="critical" onClick={() => {
+                      setCheckoutImageBase64(null);
+                      setRemoveCheckoutImage(true);
+                    }}>Remove Image</Button>
+                  </InlineStack>
+                )}
+
+                <InlineStack align="end">
+                  <Button onClick={handleSaveCheckout} loading={isUploading}>Save Image Settings</Button>
+                </InlineStack>
+              </BlockStack>
+            </Card>
 
             {/* Sticky ATC Config */}
             <Card>
