@@ -121,6 +121,8 @@ export default function ProductConfig() {
   const [newReviewTitle, setNewReviewTitle] = useState("");
   const [newReviewBody, setNewReviewBody] = useState("");
   const [newReviewImageBase64, setNewReviewImageBase64] = useState("");
+  const [checkoutImageBase64, setCheckoutImageBase64] = useState("");
+  const [removeCheckoutImage, setRemoveCheckoutImage] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
@@ -177,6 +179,7 @@ export default function ProductConfig() {
   };
 
   const handleSaveCheckout = () => {
+    setIsUploading(true);
     submit(
       {
         actionType: "checkout",
@@ -184,6 +187,9 @@ export default function ProductConfig() {
         showReviews: String(showReviews),
         showRating: String(showRating),
         reviewsSource,
+        checkoutImageBase64: checkoutImageBase64 || "",
+        existingImageUrl: product.checkoutConfig?.checkoutImageUrl || "",
+        removeImage: String(removeCheckoutImage)
       },
       { method: "post" }
     );
