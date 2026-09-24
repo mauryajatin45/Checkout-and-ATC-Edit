@@ -33,6 +33,21 @@ model Store {
   accessToken String
   createdAt   DateTime @default(now())
   products    Product[]
+  checkoutTimer CheckoutTimerSettings?
+}
+
+model CheckoutTimerSettings {
+  id              String   @id @default(cuid())
+  storeId         String   @unique
+  store           Store    @relation(fields: [storeId], references: [id])
+  enabled         Boolean  @default(true)
+  text            String   @default("Due to high demand your order is reserved for:")
+  timerMinutes    Int      @default(10)
+  backgroundColor String   @default("#e8f8e8")
+  textColor       String   @default("#000000")
+  iconEnabled     Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model Product {
