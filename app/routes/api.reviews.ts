@@ -25,6 +25,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   let bestProductReviews: any[] = [];
   let highestAvgRating = 0;
   let highestReviewCount = 0;
+  let bestHasImage = false;
 
   const debugInfo: any = { requestedProducts: productIds, shopDomain, tokenConfigured: !!token, productConfigs: [] };
 
@@ -109,16 +110,26 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       if (filteredReviews.length > 0) {
         // 2. Calculate average rating of these valid reviews
         const avgRating = filteredReviews.reduce((sum: number, r: any) => sum + r.rating, 0) / filteredReviews.length;
+        const currentHasImage = filteredReviews.some((r: any) => !!r.imageUrl);
         
-        // 3. Determine if this product has the highest rating so far
-        // Tie-breaker: if ratings are equal, prefer the one with more reviews
-        if (
-          avgRating > highestAvgRating || 
-          (avgRating === highestAvgRating && filteredReviews.length > highestReviewCount)
-        ) {
+        // 3. Determine if this product should be prioritized
+        let shouldReplace = false;
+        
+        if (currentHasImage && !bestHasImage) {
+          shouldReplace = true; // Image wins over no image
+        } else if (!currentHasImage && bestHasImage) {
+          shouldReplace = false;
+        } else if (avgRating > highestAvgRating) {
+          shouldReplace = true; // Higher rating wins
+        } else if (avgRating === highestAvgRating && filteredReviews.length > highestReviewCount) {
+          shouldReplace = true; // Tie-breaker: more reviews wins
+        }
+        
+        if (shouldReplace) {
           highestAvgRating = avgRating;
           highestReviewCount = filteredReviews.length;
           bestProductReviews = filteredReviews;
+          bestHasImage = currentHasImage;
         }
       }
     }
