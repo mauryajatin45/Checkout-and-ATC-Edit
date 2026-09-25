@@ -111,17 +111,22 @@ export default function() {
       loading: 'lazy',
       inlineSize: 'fill',
       'inline-size': 'fill',
+      fit: 'cover',
+      objectFit: 'cover',
+      'object-fit': 'cover',
       borderRadius: 'large',
       'border-radius': 'large'
     });
 
-    const boxEl = createEl('s-box', {
+    const stackEl = createEl('s-block-stack', {
+      inlineAlignment: 'stretch',
+      'inline-alignment': 'stretch',
       inlineSize: 'fill',
       'inline-size': 'fill'
     });
-    boxEl.appendChild(imageEl);
+    stackEl.appendChild(imageEl);
 
-    root.appendChild(boxEl);
+    root.appendChild(stackEl);
   }
 
   fetchSettings();
