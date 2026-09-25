@@ -1,10 +1,15 @@
 // Shopify Checkout UI Extension - Image Block
 export default function() {
   const api = globalThis.shopify;
-  if (!api) return;
+  if (!api) {
+    console.log("[Checkout Image] No globalThis.shopify API found.");
+    return;
+  }
 
   const { shop, settings: extSettings, lines } = api;
   const hasDocument = typeof document !== 'undefined' && document.body;
+
+  console.log("[Checkout Image] Init. hasDocument:", hasDocument);
 
   function createEl(tag, attrs = {}, children = []) {
     if (hasDocument) {
@@ -41,6 +46,8 @@ export default function() {
       const settingsVal = extSettings?.current || extSettings?.value || {};
       let baseUrl = settingsVal?.backend_url;
       
+      console.log("[Checkout Image] Settings backend_url:", baseUrl);
+
       let storefrontUrl = shop.storefrontUrl;
       if (storefrontUrl && !storefrontUrl.endsWith('/')) {
         storefrontUrl += '/';
@@ -52,6 +59,8 @@ export default function() {
         baseUrl = `${storefrontUrl}apps/checkout-atc/api/image`;
       }
       
+      console.log("[Checkout Image] Final API URL:", baseUrl);
+
       // Extract product IDs from the cart
       const currentLines = lines?.current || lines?.value || [];
       const pids = [];
@@ -62,12 +71,28 @@ export default function() {
         }
       }
       
-      const res = await fetch(`${baseUrl}?shop=${shop.myshopifyDomain}&products=${pids.join(',')}`);
+      console.log("[Checkout Image] Product IDs in cart:", pids);
+
+      if (pids.length === 0) {
+        console.log("[Checkout Image] No products found in cart.");
+        render();
+        return;
+      }
+
+      const fetchUrl = `${baseUrl}?shop=${shop.myshopifyDomain}&products=${pids.join(',')}`;
+      console.log("[Checkout Image] Fetching:", fetchUrl);
+
+      const res = await fetch(fetchUrl);
+      console.log("[Checkout Image] Fetch status:", res.status);
+      
       if (res.ok) {
         const data = await res.json();
+        console.log("[Checkout Image] API Response:", data);
         if (data.imageUrl) {
           imageUrl = data.imageUrl;
         }
+      } else {
+        console.error("[Checkout Image] API returned non-OK status.");
       }
     } catch (e) {
       console.error("[Checkout Image] Failed to fetch:", e);
@@ -85,18 +110,27 @@ export default function() {
       }
     }
 
-    if (!imageUrl) return;
+    console.log("[Checkout Image] Render called. imageUrl:", imageUrl);
 
-    // The user wants a 9:16 portrait image. We just render it.
+    if (!imageUrl) {
+      console.log("[Checkout Image] No imageUrl. Rendering nothing.");
+      return;
+    }
+
+    // Shopify requires native components for images
+    console.log("[Checkout Image] Rendering s-image with source:", imageUrl);
     const imageEl = createEl('s-image', {
       source: imageUrl,
-      aspectRatio: '9/16',
+      src: imageUrl,
+      aspectRatio: 0.5625,
       loading: 'lazy',
       fit: 'cover',
-      borderRadius: 'base'
+      borderRadius: 'base',
+      border: 'base'
     });
 
     root.appendChild(imageEl);
+    console.log("[Checkout Image] Render complete.");
   }
 
   fetchSettings();
