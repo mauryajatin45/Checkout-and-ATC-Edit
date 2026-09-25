@@ -46,8 +46,6 @@ export default function() {
       const settingsVal = extSettings?.current || extSettings?.value || {};
       let baseUrl = settingsVal?.backend_url;
       
-      console.log("[Checkout Image] Settings backend_url:", baseUrl);
-
       let storefrontUrl = shop.storefrontUrl;
       if (storefrontUrl && !storefrontUrl.endsWith('/')) {
         storefrontUrl += '/';
@@ -58,10 +56,7 @@ export default function() {
       } else {
         baseUrl = `${storefrontUrl}apps/checkout-atc/api/image`;
       }
-      
-      console.log("[Checkout Image] Final API URL:", baseUrl);
 
-      // Extract product IDs from the cart
       const currentLines = lines?.current || lines?.value || [];
       const pids = [];
       for (const l of currentLines) {
@@ -70,29 +65,25 @@ export default function() {
           if (id) pids.push(id);
         }
       }
-      
-      console.log("[Checkout Image] Product IDs in cart:", pids);
 
       if (pids.length === 0) {
-        console.log("[Checkout Image] No products found in cart.");
         render();
         return;
       }
 
       const fetchUrl = `${baseUrl}?shop=${shop.myshopifyDomain}&products=${pids.join(',')}`;
-      console.log("[Checkout Image] Fetching:", fetchUrl);
-
       const res = await fetch(fetchUrl);
-      console.log("[Checkout Image] Fetch status:", res.status);
       
       if (res.ok) {
         const data = await res.json();
-        console.log("[Checkout Image] API Response:", data);
         if (data.imageUrl) {
           imageUrl = data.imageUrl;
+          // Force Cloudinary to upscale/downscale the image to 1000px width 
+          // so Shopify's image component naturally shrinks it to exactly 100% column width
+          if (imageUrl.includes('/upload/')) {
+            imageUrl = imageUrl.replace('/upload/', '/upload/w_1000,c_scale/');
+          }
         }
-      } else {
-        console.error("[Checkout Image] API returned non-OK status.");
       }
     } catch (e) {
       console.error("[Checkout Image] Failed to fetch:", e);
@@ -110,22 +101,18 @@ export default function() {
       }
     }
 
-    console.log("[Checkout Image] Render called. imageUrl:", imageUrl);
-
     if (!imageUrl) {
-      console.log("[Checkout Image] No imageUrl. Rendering nothing.");
       return;
     }
 
-    // Shopify requires native components for images
-    console.log("[Checkout Image] Rendering s-image with source:", imageUrl);
     const imageEl = createEl('s-image', {
       src: imageUrl,
       source: imageUrl,
       loading: 'lazy',
-      width: 'fill',
-      borderRadius: 'loose',
-      'border-radius': 'loose'
+      inlineSize: 'fill',
+      'inline-size': 'fill',
+      borderRadius: 'large',
+      'border-radius': 'large'
     });
 
     const boxEl = createEl('s-box', {
@@ -135,7 +122,6 @@ export default function() {
     boxEl.appendChild(imageEl);
 
     root.appendChild(boxEl);
-    console.log("[Checkout Image] Render complete.");
   }
 
   fetchSettings();
