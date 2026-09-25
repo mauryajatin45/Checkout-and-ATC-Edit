@@ -120,13 +120,10 @@ export default function() {
     // Shopify requires native components for images
     console.log("[Checkout Image] Rendering s-image with source:", imageUrl);
     const imageEl = createEl('s-image', {
-      source: imageUrl,
       src: imageUrl,
-      aspectRatio: 0.5625,
+      source: imageUrl,
       loading: 'lazy',
-      fit: 'cover',
-      borderRadius: 'base',
-      border: 'base'
+      borderRadius: 'base'
     });
 
     root.appendChild(imageEl);
