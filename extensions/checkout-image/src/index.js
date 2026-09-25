@@ -11,32 +11,31 @@ export default function() {
 
   console.log("[Checkout Image] Init. hasDocument:", hasDocument);
 
-  function createEl(tag, attrs = {}, children = []) {
+  function createEl(tag, attrs = {}, textContent) {
     if (hasDocument) {
       const el = document.createElement(tag);
       for (const [k, v] of Object.entries(attrs)) {
         if (v !== undefined && v !== null) {
+          // Set as HTML attribute (kebab-case)
           el.setAttribute(k, String(v));
         }
       }
-      children.forEach(c => {
-        if (typeof c === 'string') {
-          el.appendChild(document.createTextNode(c));
-        } else {
-          el.appendChild(c);
-        }
-      });
+      if (textContent) el.textContent = textContent;
       return el;
     } else {
-      return api.extension.createComponent(tag, attrs, children);
+      return api.extension.createComponent(tag, attrs, textContent ? [textContent] : []);
     }
   }
 
-  let root;
+  // Clear the root
   if (hasDocument) {
-    root = document.body;
-  } else {
-    root = api.extension.root;
+    while (document.body.firstChild) document.body.removeChild(document.body.firstChild);
+  }
+
+  // Use a container s-stack (same pattern as checkout-reviews which renders full-width)
+  const container = createEl('s-stack', { gap: 'none' });
+  if (hasDocument) {
+    document.body.appendChild(container);
   }
 
   let imageUrl = null;
@@ -68,26 +67,25 @@ export default function() {
       }
 
       if (pids.length === 0) {
-        render();
         return;
       }
 
       const fetchUrl = `${baseUrl}?shop=${shop.myshopifyDomain}&products=${pids.join(',')}`;
+      console.log("[Checkout Image] Fetching:", fetchUrl);
       const res = await fetch(fetchUrl);
       
       if (res.ok) {
         const data = await res.json();
+        console.log("[Checkout Image] API response:", JSON.stringify(data));
         if (data.imageUrl) {
           imageUrl = data.imageUrl;
-          // Force Cloudinary to upscale/downscale the image to 1000px width 
+          // Scale via Cloudinary to ensure the image is wide enough
           if (imageUrl.includes('/upload/')) {
-            imageUrl = imageUrl.replace('/upload/', '/upload/w_1000,c_scale/');
+            imageUrl = imageUrl.replace('/upload/', '/upload/w_1200,c_scale/');
           }
         }
-        // Use the exact aspect ratio returned by the API (fetched from Cloudinary dimensions)
         if (data.aspectRatio) {
           imageAspectRatio = data.aspectRatio;
-          console.log("[Checkout Image] Got aspect ratio:", imageAspectRatio);
         }
       }
     } catch (e) {
@@ -98,37 +96,35 @@ export default function() {
   }
 
   function render() {
-    if (hasDocument) {
-      while (root.firstChild) root.removeChild(root.firstChild);
-    } else {
-      for (const child of root.children) {
-        root.removeChild(child);
-      }
-    }
+    // Clear the container
+    while (container.firstChild) container.removeChild(container.firstChild);
 
     if (!imageUrl) {
       return;
     }
 
-    // Build image attributes — set the EXACT aspect ratio from the real image dimensions
-    // so Shopify's s-image container matches the image perfectly (no letterboxing)
-    const imgAttrs = {
-      src: imageUrl,
-      source: imageUrl,
-      loading: 'lazy',
-      inlineSize: 'fill',
+    // Use the real aspect ratio from Cloudinary, or fall back to 3/4 (common portrait)
+    const ratio = imageAspectRatio || '3/4';
+    console.log("[Checkout Image] Rendering with aspectRatio:", ratio, "url:", imageUrl.substring(0, 80));
+
+    // Create the s-image with all known valid attributes
+    const imageEl = createEl('s-image', {
+      'src': imageUrl,
       'inline-size': 'fill',
-      borderRadius: 'large',
-      'border-radius': 'large'
-    };
+      'aspect-ratio': ratio,
+      'border-radius': 'large',
+      'loading': 'lazy'
+    });
 
-    if (imageAspectRatio) {
-      imgAttrs.aspectRatio = imageAspectRatio;
-      imgAttrs['aspect-ratio'] = imageAspectRatio;
-    }
+    // Also try setting as JS properties (some web components prefer property access)
+    try {
+      imageEl.src = imageUrl;
+      imageEl.inlineSize = 'fill';
+      imageEl.aspectRatio = ratio;
+      imageEl.borderRadius = 'large';
+    } catch(e) { /* ignore if properties don't exist */ }
 
-    const imageEl = createEl('s-image', imgAttrs);
-    root.appendChild(imageEl);
+    container.appendChild(imageEl);
   }
 
   fetchSettings();
