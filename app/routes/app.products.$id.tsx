@@ -152,7 +152,8 @@ export default function ProductConfig() {
     if (file) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        setNewReviewImageBase64(e.target?.result as string);
+        setCheckoutImageBase64(e.target?.result as string);
+        setRemoveCheckoutImage(false);
       };
       reader.readAsDataURL(file);
     }
