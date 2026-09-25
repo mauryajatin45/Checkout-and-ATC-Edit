@@ -23,6 +23,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const productIds = productsParam.split(",").filter(Boolean);
   
   let imageUrl: string | null = null;
+  let aspectRatio: string | null = null;
 
   for (const pid of productIds) {
     const graphqlId = `gid://shopify/Product/${pid}`;
@@ -34,9 +35,26 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     if (productData?.checkoutConfig?.enabled && productData?.checkoutConfig?.checkoutImageUrl) {
       imageUrl = productData.checkoutConfig.checkoutImageUrl;
+
+      // If it's a Cloudinary URL, fetch the image dimensions using fl_getinfo
+      if (imageUrl.includes('/upload/')) {
+        try {
+          const infoUrl = imageUrl.replace('/upload/', '/upload/fl_getinfo/');
+          const infoRes = await fetch(infoUrl);
+          if (infoRes.ok) {
+            const info = await infoRes.json();
+            if (info.output?.width && info.output?.height) {
+              aspectRatio = `${info.output.width}/${info.output.height}`;
+            }
+          }
+        } catch (e) {
+          console.error("[api.image] Failed to fetch Cloudinary info:", e);
+        }
+      }
+
       break; // Pick the first product that has an image enabled
     }
   }
 
-  return json({ imageUrl }, { headers: corsHeaders });
+  return json({ imageUrl, aspectRatio }, { headers: corsHeaders });
 };

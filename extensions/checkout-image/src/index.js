@@ -40,6 +40,7 @@ export default function() {
   }
 
   let imageUrl = null;
+  let imageAspectRatio = null;
 
   async function fetchSettings() {
     try {
@@ -79,10 +80,14 @@ export default function() {
         if (data.imageUrl) {
           imageUrl = data.imageUrl;
           // Force Cloudinary to upscale/downscale the image to 1000px width 
-          // so Shopify's image component naturally shrinks it to exactly 100% column width
           if (imageUrl.includes('/upload/')) {
             imageUrl = imageUrl.replace('/upload/', '/upload/w_1000,c_scale/');
           }
+        }
+        // Use the exact aspect ratio returned by the API (fetched from Cloudinary dimensions)
+        if (data.aspectRatio) {
+          imageAspectRatio = data.aspectRatio;
+          console.log("[Checkout Image] Got aspect ratio:", imageAspectRatio);
         }
       }
     } catch (e) {
@@ -105,26 +110,25 @@ export default function() {
       return;
     }
 
-    const imageEl = createEl('s-image', {
+    // Build image attributes — set the EXACT aspect ratio from the real image dimensions
+    // so Shopify's s-image container matches the image perfectly (no letterboxing)
+    const imgAttrs = {
       src: imageUrl,
       source: imageUrl,
       loading: 'lazy',
       inlineSize: 'fill',
       'inline-size': 'fill',
-      fit: 'cover',
-      objectFit: 'cover',
-      'object-fit': 'cover',
       borderRadius: 'large',
       'border-radius': 'large'
-    });
+    };
 
-    const boxEl = createEl('s-box', {
-      inlineSize: 'fill',
-      'inline-size': 'fill'
-    });
-    boxEl.appendChild(imageEl);
+    if (imageAspectRatio) {
+      imgAttrs.aspectRatio = imageAspectRatio;
+      imgAttrs['aspect-ratio'] = imageAspectRatio;
+    }
 
-    root.appendChild(boxEl);
+    const imageEl = createEl('s-image', imgAttrs);
+    root.appendChild(imageEl);
   }
 
   fetchSettings();
