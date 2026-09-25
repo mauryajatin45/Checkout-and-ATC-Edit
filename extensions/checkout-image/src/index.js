@@ -118,15 +118,13 @@ export default function() {
       'border-radius': 'large'
     });
 
-    const stackEl = createEl('s-block-stack', {
-      inlineAlignment: 'stretch',
-      'inline-alignment': 'stretch',
+    const boxEl = createEl('s-box', {
       inlineSize: 'fill',
       'inline-size': 'fill'
     });
-    stackEl.appendChild(imageEl);
+    boxEl.appendChild(imageEl);
 
-    root.appendChild(stackEl);
+    root.appendChild(boxEl);
   }
 
   fetchSettings();
