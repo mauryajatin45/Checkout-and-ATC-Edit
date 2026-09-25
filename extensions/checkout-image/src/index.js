@@ -123,10 +123,18 @@ export default function() {
       src: imageUrl,
       source: imageUrl,
       loading: 'lazy',
-      borderRadius: 'base'
+      width: 'fill',
+      borderRadius: 'loose',
+      'border-radius': 'loose'
     });
 
-    root.appendChild(imageEl);
+    const boxEl = createEl('s-box', {
+      inlineSize: 'fill',
+      'inline-size': 'fill'
+    });
+    boxEl.appendChild(imageEl);
+
+    root.appendChild(boxEl);
     console.log("[Checkout Image] Render complete.");
   }
 
