@@ -11,6 +11,7 @@ import {
   Text,
   IndexFilters,
   useSetIndexFiltersMode,
+  ChoiceList
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
@@ -127,9 +128,43 @@ export default function Index() {
   const navigate = useNavigate();
 
   const [queryValue, setQueryValue] = useState("");
-  const filteredProducts = products.filter((product) =>
-    product.title.toLowerCase().includes(queryValue.toLowerCase())
-  );
+  const [sortSelected, setSortSelected] = useState(["title asc"]);
+  const [stickyAtcFilter, setStickyAtcFilter] = useState<string[] | undefined>(undefined);
+  const [checkoutWidgetFilter, setCheckoutWidgetFilter] = useState<string[] | undefined>(undefined);
+
+  const filteredProducts = products.filter((product) => {
+    const matchesQuery = product.title.toLowerCase().includes(queryValue.toLowerCase());
+    
+    let matchesStickyAtc = true;
+    if (stickyAtcFilter && stickyAtcFilter.length > 0) {
+      const isEnabled = product.stickyAtcConfig?.enabled ? "enabled" : "disabled";
+      matchesStickyAtc = stickyAtcFilter.includes(isEnabled);
+    }
+    
+    let matchesCheckout = true;
+    if (checkoutWidgetFilter && checkoutWidgetFilter.length > 0) {
+      const isEnabled = product.checkoutConfig?.enabled ? "enabled" : "disabled";
+      matchesCheckout = checkoutWidgetFilter.includes(isEnabled);
+    }
+    
+    return matchesQuery && matchesStickyAtc && matchesCheckout;
+  }).sort((a, b) => {
+    const [key, direction] = sortSelected[0].split(" ");
+    
+    if (key === "title") {
+      return direction === "asc" ? a.title.localeCompare(b.title) : b.title.localeCompare(a.title);
+    } else if (key === "sticky_atc") {
+      const aVal = a.stickyAtcConfig?.enabled ? 1 : 0;
+      const bVal = b.stickyAtcConfig?.enabled ? 1 : 0;
+      return direction === "asc" ? aVal - bVal : bVal - aVal;
+    } else if (key === "checkout") {
+      const aVal = a.checkoutConfig?.enabled ? 1 : 0;
+      const bVal = b.checkoutConfig?.enabled ? 1 : 0;
+      return direction === "asc" ? aVal - bVal : bVal - aVal;
+    }
+    
+    return 0;
+  });
 
   const resourceName = {
     singular: "product",
@@ -153,6 +188,73 @@ export default function Index() {
     setQueryValue("");
     clearSelection();
   };
+
+  const sortOptions = [
+    { label: "Product title A-Z", value: "title asc", directionLabel: "A-Z" },
+    { label: "Product title Z-A", value: "title desc", directionLabel: "Z-A" },
+    { label: "Sticky ATC Enabled", value: "sticky_atc desc", directionLabel: "Highest to lowest" },
+    { label: "Checkout Widget Enabled", value: "checkout desc", directionLabel: "Highest to lowest" },
+  ];
+
+  const handleStickyAtcFilterChange = (value: string[]) => setStickyAtcFilter(value);
+  const handleCheckoutWidgetFilterChange = (value: string[]) => setCheckoutWidgetFilter(value);
+
+  const filters = [
+    {
+      key: "stickyAtc",
+      label: "Sticky ATC",
+      filter: (
+        <ChoiceList
+          title="Sticky ATC"
+          titleHidden
+          choices={[
+            { label: "Enabled", value: "enabled" },
+            { label: "Disabled", value: "disabled" },
+          ]}
+          selected={stickyAtcFilter || []}
+          onChange={handleStickyAtcFilterChange}
+          allowMultiple
+        />
+      ),
+      shortcut: true,
+    },
+    {
+      key: "checkoutWidget",
+      label: "Checkout Widget",
+      filter: (
+        <ChoiceList
+          title="Checkout Widget"
+          titleHidden
+          choices={[
+            { label: "Enabled", value: "enabled" },
+            { label: "Disabled", value: "disabled" },
+          ]}
+          selected={checkoutWidgetFilter || []}
+          onChange={handleCheckoutWidgetFilterChange}
+          allowMultiple
+        />
+      ),
+      shortcut: true,
+    },
+  ];
+
+  const appliedFilters = [];
+  if (stickyAtcFilter && stickyAtcFilter.length > 0) {
+    const key = "stickyAtc";
+    appliedFilters.push({
+      key,
+      label: `Sticky ATC: ${stickyAtcFilter.join(", ")}`,
+      onRemove: () => setStickyAtcFilter(undefined),
+    });
+  }
+  if (checkoutWidgetFilter && checkoutWidgetFilter.length > 0) {
+    const key = "checkoutWidget";
+    appliedFilters.push({
+      key,
+      label: `Checkout Widget: ${checkoutWidgetFilter.join(", ")}`,
+      onRemove: () => setCheckoutWidgetFilter(undefined),
+    });
+  }
 
   const promotedBulkActions = [
     {
@@ -216,24 +318,35 @@ export default function Index() {
         <Layout.Section>
           <Card padding="0">
             <IndexFilters
-              sortOptions={[]}
-              sortSelected={["title asc"]}
+              sortOptions={sortOptions}
+              sortSelected={sortSelected as string[]}
               queryValue={queryValue}
               queryPlaceholder="Search products"
               onQueryChange={onQueryChange}
               onQueryClear={onQueryClear}
-              onSort={() => {}}
+              onSort={setSortSelected as (value: string[]) => void}
               cancelAction={{
                 onAction: onQueryClear,
                 disabled: false,
                 loading: false,
               }}
-              tabs={[]}
+              tabs={[
+                {
+                  content: 'All',
+                  id: 'all',
+                  isLocked: true,
+                  actions: []
+                }
+              ]}
               selected={0}
               onSelect={() => {}}
-              filters={[]}
-              appliedFilters={[]}
-              onClearAll={() => {}}
+              filters={filters}
+              appliedFilters={appliedFilters as any}
+              onClearAll={() => {
+                setStickyAtcFilter(undefined);
+                setCheckoutWidgetFilter(undefined);
+                setQueryValue("");
+              }}
               mode={mode}
               setMode={setMode}
             />
