@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useActionData } from "@remix-run/react";
+import { useLoaderData, useSubmit, useActionData, useNavigation } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -9,12 +9,14 @@ import {
   BlockStack,
   Text,
   TextField,
-  Checkbox, Select,
+  Checkbox,
+  Select,
   Button,
   InlineStack,
   ColorPicker,
+  Badge,
+  Banner,
   hsbToHex,
-  hexToRgb,
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
@@ -75,6 +77,8 @@ export default function CheckoutTimer() {
   const { settings } = useLoaderData<typeof loader>();
   const submit = useSubmit();
   const actionData = useActionData<typeof action>();
+  const navigation = useNavigation();
+  const isSaving = navigation.state === "submitting" || navigation.state === "loading";
 
   const [enabled, setEnabled] = useState(settings?.enabled ?? true);
   const [text, setText] = useState(settings?.text || "Due to high demand your order is reserved for:");
@@ -130,20 +134,37 @@ export default function CheckoutTimer() {
 
   return (
     <Page>
-      <TitleBar title="Checkout Reservation Timer" />
+      <TitleBar title="Checkout Reservation Timer">
+        <button variant="primary" onClick={handleSave} disabled={isSaving}>
+          {isSaving ? "Saving..." : "Save Settings"}
+        </button>
+      </TitleBar>
       <Layout>
         <Layout.Section>
           <Card>
             <BlockStack gap="400">
-              <Text variant="headingMd" as="h2">Global Checkout Timer</Text>
+              <InlineStack align="space-between" blockAlign="center">
+                <Text variant="headingMd" as="h2">Global Checkout Timer</Text>
+                <Badge tone={enabled ? "success" : "critical"}>
+                  {enabled ? "Active" : "Disabled"}
+                </Badge>
+              </InlineStack>
+
+              {!enabled && (
+                <Banner tone="warning">
+                  <p>The timer is currently <strong>turned off</strong>. It will not display on your checkout page.</p>
+                </Banner>
+              )}
+
               <Text as="p">
-                Enable and configure a reservation timer for your checkout page. Add the app block from the Shopify Checkout Editor.
+                Enable and configure a reservation timer for your checkout page. You can toggle this on or off at any time.
               </Text>
 
               <Checkbox
                 label="Enable Checkout Timer"
                 checked={enabled}
                 onChange={setEnabled}
+                helpText="Uncheck this box and click Save Settings to hide the timer from checkout."
               />
 
               <TextField
@@ -151,6 +172,7 @@ export default function CheckoutTimer() {
                 value={text}
                 onChange={setText}
                 autoComplete="off"
+                disabled={!enabled}
               />
 
               <TextField
@@ -159,12 +181,14 @@ export default function CheckoutTimer() {
                 value={timerMinutes}
                 onChange={setTimerMinutes}
                 autoComplete="off"
+                disabled={!enabled}
               />
 
               <Checkbox
                 label="Show Checkmark Icon"
                 checked={iconEnabled}
                 onChange={setIconEnabled}
+                disabled={!enabled}
               />
               
               <Select
@@ -172,22 +196,24 @@ export default function CheckoutTimer() {
                 options={fontOptions}
                 onChange={setFontSize}
                 value={fontSize}
+                disabled={!enabled}
               />
 
               <InlineStack gap="400">
                 <BlockStack gap="200">
                   <Text as="span" variant="bodyMd">Background Color (Checkout overrides this with native Banner colors)</Text>
                   <ColorPicker onChange={setBgColorHsb} color={bgColorHsb} />
-                  <TextField label="Hex" value={backgroundColor} onChange={setBackgroundColor} autoComplete="off" />
+                  <TextField label="Hex" value={backgroundColor} onChange={setBackgroundColor} autoComplete="off" disabled={!enabled} />
                 </BlockStack>
                 <BlockStack gap="200">
                   <Text as="span" variant="bodyMd">Text Color (Checkout overrides this)</Text>
                   <ColorPicker onChange={setTextColorHsb} color={textColorHsb} />
-                  <TextField label="Hex" value={textColor} onChange={setTextColor} autoComplete="off" />
+                  <TextField label="Hex" value={textColor} onChange={setTextColor} autoComplete="off" disabled={!enabled} />
                 </BlockStack>
               </InlineStack>
 
-              <div style={{ padding: '16px', backgroundColor, color: textColor, borderRadius: '8px', border: '1px solid #ccc' }}>
+              <Text variant="headingSm" as="h3">Live Preview</Text>
+              <div style={{ padding: '16px', backgroundColor, color: textColor, borderRadius: '8px', border: '1px solid #ccc', opacity: enabled ? 1 : 0.4 }}>
                 <InlineStack gap="200" align="start">
                   {iconEnabled && (
                     <svg viewBox="0 0 20 20" width="20" height="20" fill={textColor}>
@@ -202,7 +228,9 @@ export default function CheckoutTimer() {
               </div>
 
               <InlineStack align="end">
-                <Button variant="primary" onClick={handleSave}>Save Settings</Button>
+                <Button variant="primary" onClick={handleSave} loading={isSaving}>
+                  Save Settings
+                </Button>
               </InlineStack>
             </BlockStack>
           </Card>

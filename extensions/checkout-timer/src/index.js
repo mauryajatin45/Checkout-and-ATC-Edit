@@ -3,8 +3,7 @@ export default function() {
   const api = globalThis.shopify;
   if (!api) return;
 
-  const { shop, extension, settings: extSettings } = api;
-
+  const { shop, settings: extSettings } = api;
   const hasDocument = typeof document !== 'undefined' && document.body;
 
   function createEl(tag, attrs = {}, textContent = null) {
@@ -15,10 +14,12 @@ export default function() {
           el.setAttribute(k, String(v));
         }
       }
-      if (textContent) el.textContent = textContent;
+      if (textContent !== null && textContent !== undefined) {
+        el.appendChild(document.createTextNode(String(textContent)));
+      }
       return el;
     } else {
-      const children = textContent ? [textContent] : [];
+      const children = (textContent !== null && textContent !== undefined) ? [String(textContent)] : [];
       return api.extension.createComponent(tag, attrs, children);
     }
   }
@@ -33,43 +34,79 @@ export default function() {
   let timerSettings = null;
   let timerInterval = null;
   let timeRemaining = 10 * 60;
-  let fetchFailed = false;
+
+  let timeTextEl = null;
+  let containerText = null;
+
+  function clearRoot() {
+    try {
+      if (hasDocument) {
+        while (root.firstChild) root.removeChild(root.firstChild);
+      } else {
+        for (const child of root.children) {
+          root.removeChild(child);
+        }
+      }
+    } catch (e) {
+      console.error("[Checkout Timer] Error clearing root:", e);
+    }
+  }
+
+  function stopTimer() {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+  }
 
   async function fetchSettings() {
+    // 1. Check extension block settings in Checkout Editor first
+    const settingsVal = extSettings?.current || extSettings?.value || {};
+    if (settingsVal?.enabled === false) {
+      console.log("[Checkout Timer] Disabled via Checkout Editor block settings");
+      stopTimer();
+      clearRoot();
+      return;
+    }
+
     try {
-      let storefrontUrl = shop.storefrontUrl;
+      let storefrontUrl = shop?.storefrontUrl || '';
       if (storefrontUrl && !storefrontUrl.endsWith('/')) {
         storefrontUrl += '/';
       }
       
-      const settingsVal = extSettings?.current || extSettings?.value || {};
       let baseUrl = settingsVal?.backend_url;
-      
       if (baseUrl) {
         baseUrl = `${baseUrl.replace(/\/$/, '')}/api/timer`;
       } else {
         baseUrl = `${storefrontUrl}apps/checkout-atc/api/timer`;
       }
       
-      const res = await fetch(`${baseUrl}?shop=${shop.myshopifyDomain}`);
+      // Use cache-busting timestamp & no-store headers to guarantee fresh data
+      const fetchUrl = `${baseUrl}?shop=${encodeURIComponent(shop?.myshopifyDomain || '')}&_t=${Date.now()}`;
+      const res = await fetch(fetchUrl, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
+
       if (res.ok) {
         const data = await res.json();
-        if (data.settings) {
+        if (data && data.settings) {
           timerSettings = data.settings;
-          timeRemaining = timerSettings.timerMinutes * 60;
-          fetchFailed = false;
+          timeRemaining = (timerSettings.timerMinutes || 10) * 60;
         }
-      } else {
-        fetchFailed = true;
       }
     } catch (e) {
       console.error("[Checkout Timer] Failed to fetch settings:", e);
-      fetchFailed = true;
     }
     
+    // If settings could not be fetched, default to FALSE so we never force an active timer on failure
     if (!timerSettings) {
       timerSettings = {
-        enabled: true,
+        enabled: false,
         text: "Due to high demand your order is reserved for:",
         timerMinutes: 10,
         backgroundColor: "#e8f8e8",
@@ -79,9 +116,16 @@ export default function() {
       };
     }
     
-    // If the timer is disabled, render once (which clears the UI) and do NOT start any interval
-    if (!timerSettings.enabled) {
-      render();
+    // Explicitly check enabled flag:
+    if (timerSettings.enabled === false) {
+      console.log("[Checkout Timer] Timer is disabled in app dashboard");
+      stopTimer();
+      clearRoot();
+      try {
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.removeItem('checkout_timer_end');
+        }
+      } catch(e) {}
       return;
     }
     
@@ -90,59 +134,72 @@ export default function() {
   }
 
   function startTimer() {
-    if (timerInterval) clearInterval(timerInterval);
+    stopTimer();
     
     let endTime = Date.now() + (timeRemaining * 1000);
     try {
       if (typeof sessionStorage !== 'undefined') {
         const stored = sessionStorage.getItem('checkout_timer_end');
-        if (stored && parseInt(stored) > Date.now()) {
-          endTime = parseInt(stored);
+        if (stored && parseInt(stored, 10) > Date.now()) {
+          endTime = parseInt(stored, 10);
         } else {
           sessionStorage.setItem('checkout_timer_end', endTime.toString());
         }
       }
     } catch(e) {}
 
+    // Immediate initial sync
+    const initialDiff = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
+    timeRemaining = initialDiff;
+    updateTimeDisplay();
+
     timerInterval = setInterval(() => {
-      const now = Date.now();
-      const diff = Math.max(0, Math.floor((endTime - now) / 1000));
-      
-      timeRemaining = diff;
-      updateTimeDisplay();
-      
-      if (diff <= 0) {
-        clearInterval(timerInterval);
-        timerInterval = null;
+      try {
+        const now = Date.now();
+        const diff = Math.max(0, Math.floor((endTime - now) / 1000));
+        timeRemaining = diff;
+        updateTimeDisplay();
+        
+        if (diff <= 0) {
+          stopTimer();
+        }
+      } catch (err) {
+        console.error("[Checkout Timer] Timer tick error:", err);
       }
     }, 1000);
   }
 
-  let timeTextEl = null;
-
   function updateTimeDisplay() {
-    if (!timeTextEl) return;
     const m = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
     const s = (timeRemaining % 60).toString().padStart(2, '0');
+    const timeStr = `${m}:${s}`;
     
     if (hasDocument) {
-      timeTextEl.textContent = `${m}:${s}`;
+      if (timeTextEl) {
+        if (timeTextEl.firstChild) {
+          timeTextEl.firstChild.nodeValue = timeStr;
+        } else {
+          timeTextEl.appendChild(document.createTextNode(timeStr));
+        }
+        try {
+          timeTextEl.textContent = timeStr;
+        } catch(e) {}
+      }
+    } else {
+      // In Remote UI (Worker sandbox)
+      if (containerText && timeTextEl) {
+        try {
+          containerText.removeChild(timeTextEl);
+          timeTextEl = createEl('s-text', { type: 'strong' }, timeStr);
+          containerText.appendChild(timeTextEl);
+        } catch(e) {}
+      }
     }
-    // Don't call render() here — just update the text node directly.
-    // Previously this called render() on every tick in non-DOM mode,
-    // which caused a re-render loop that locked up mobile checkout.
   }
 
   function render() {
-    if (hasDocument) {
-      while (root.firstChild) root.removeChild(root.firstChild);
-    } else {
-      for (const child of root.children) {
-        root.removeChild(child);
-      }
-    }
+    clearRoot();
 
-    // If timer is disabled, leave the root empty — no banner, no interval
     if (!timerSettings || !timerSettings.enabled) return;
 
     let tone = 'info';
@@ -155,13 +212,11 @@ export default function() {
       tone = 'warning';
     }
 
-    // 2026 Shopify Checkout UI Banner uses 'tone' prop
     const bannerAttrs = { tone };
     const banner = createEl('s-banner', bannerAttrs);
 
-    // Apply the font size from settings!
     const fontSize = timerSettings.fontSize || 'base';
-    const containerText = createEl('s-text', { size: fontSize });
+    containerText = createEl('s-text', { size: fontSize });
 
     const labelEl = createEl('s-text', {}, timerSettings.text + ' ');
     containerText.appendChild(labelEl);
@@ -171,12 +226,6 @@ export default function() {
     timeTextEl = createEl('s-text', { type: 'strong' }, `${m}:${s}`);
     
     containerText.appendChild(timeTextEl);
-    
-    if (fetchFailed) {
-      const errorEl = createEl('s-text', { size: 'small', appearance: 'critical' }, ' (Error connecting to backend)');
-      containerText.appendChild(errorEl);
-    }
-
     banner.appendChild(containerText);
     root.appendChild(banner);
   }

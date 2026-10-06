@@ -3,6 +3,7 @@ api_version = "2026-07"
 [[extensions]]
 name = "Checkout Image"
 handle = "checkout-image"
+uid = "e18a3560-340f-46cc-66c8-cdd71b8378b5ceb3a773"
 type = "ui_extension"
 
 [extensions.capabilities]

@@ -9,6 +9,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0",
   };
 
   if (request.method === "OPTIONS") {
@@ -25,10 +28,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   });
 
   if (!store || !store.checkoutTimer) {
-    // Return defaults if not found
     return json({
       settings: {
-        enabled: true,
+        enabled: false,
         text: "Due to high demand your order is reserved for:",
         timerMinutes: 10,
         backgroundColor: "#e8f8e8",
