@@ -79,6 +79,12 @@ export default function() {
       };
     }
     
+    // If the timer is disabled, render once (which clears the UI) and do NOT start any interval
+    if (!timerSettings.enabled) {
+      render();
+      return;
+    }
+    
     render();
     startTimer();
   }
@@ -107,6 +113,7 @@ export default function() {
       
       if (diff <= 0) {
         clearInterval(timerInterval);
+        timerInterval = null;
       }
     }, 1000);
   }
@@ -120,9 +127,10 @@ export default function() {
     
     if (hasDocument) {
       timeTextEl.textContent = `${m}:${s}`;
-    } else {
-      render();
     }
+    // Don't call render() here — just update the text node directly.
+    // Previously this called render() on every tick in non-DOM mode,
+    // which caused a re-render loop that locked up mobile checkout.
   }
 
   function render() {
@@ -134,6 +142,7 @@ export default function() {
       }
     }
 
+    // If timer is disabled, leave the root empty — no banner, no interval
     if (!timerSettings || !timerSettings.enabled) return;
 
     let tone = 'info';
