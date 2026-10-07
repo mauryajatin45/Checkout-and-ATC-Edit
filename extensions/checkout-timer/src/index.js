@@ -59,31 +59,29 @@ export default function() {
     }
   }
 
-  async function fetchSettings() {
-    // 1. Check extension block settings in Checkout Editor first
-    const settingsVal = extSettings?.current || extSettings?.value || {};
-    if (settingsVal?.enabled === false) {
-      console.log("[Checkout Timer] Disabled via Checkout Editor block settings");
-      stopTimer();
-      clearRoot();
-      return;
+  function resolveBackendBaseUrl(shopDomain, customUrl) {
+    if (customUrl && typeof customUrl === 'string' && customUrl.trim()) {
+      return customUrl.trim().replace(/\/$/, '');
     }
+    const domain = String(shopDomain || '').toLowerCase();
+    if (domain.includes('parrox-us')) {
+      return 'https://checkoutandatc.parrox.us.terzettoo.com';
+    }
+    if (domain.includes('parrox')) {
+      return 'https://checkoutandatc.parrox.terzettoo.com';
+    }
+    return 'https://checkoutandatc.zoyava.terzettoo.com';
+  }
+
+  async function fetchSettings() {
+    const settingsVal = extSettings?.current || extSettings?.value || {};
+    const baseUrl = resolveBackendBaseUrl(shop?.myshopifyDomain, settingsVal?.backend_url);
+    const apiUrl = `${baseUrl}/api/timer`;
 
     try {
-      let storefrontUrl = shop?.storefrontUrl || '';
-      if (storefrontUrl && !storefrontUrl.endsWith('/')) {
-        storefrontUrl += '/';
-      }
-      
-      let baseUrl = settingsVal?.backend_url;
-      if (baseUrl) {
-        baseUrl = `${baseUrl.replace(/\/$/, '')}/api/timer`;
-      } else {
-        baseUrl = `${storefrontUrl}apps/checkout-atc/api/timer`;
-      }
-      
-      // Use cache-busting timestamp & no-store headers to guarantee fresh data
-      const fetchUrl = `${baseUrl}?shop=${encodeURIComponent(shop?.myshopifyDomain || '')}&_t=${Date.now()}`;
+      const fetchUrl = `${apiUrl}?shop=${encodeURIComponent(shop?.myshopifyDomain || '')}&_t=${Date.now()}`;
+      console.log("[Checkout Timer] Fetching settings from:", fetchUrl);
+
       const res = await fetch(fetchUrl, {
         cache: 'no-store',
         headers: {
@@ -97,16 +95,17 @@ export default function() {
         if (data && data.settings) {
           timerSettings = data.settings;
           timeRemaining = (timerSettings.timerMinutes || 10) * 60;
+          console.log("[Checkout Timer] Loaded settings:", JSON.stringify(timerSettings));
         }
       }
     } catch (e) {
-      console.error("[Checkout Timer] Failed to fetch settings:", e);
+      console.error("[Checkout Timer] Network error fetching settings:", e);
     }
-    
-    // If settings could not be fetched, default to FALSE so we never force an active timer on failure
+
+    // Fallback if network or backend unavailable — ensure timer is visible when block is added
     if (!timerSettings) {
       timerSettings = {
-        enabled: false,
+        enabled: true,
         text: "Due to high demand your order is reserved for:",
         timerMinutes: 10,
         backgroundColor: "#e8f8e8",
@@ -115,8 +114,8 @@ export default function() {
         fontSize: "base"
       };
     }
-    
-    // Explicitly check enabled flag:
+
+    // If explicitly turned off in dashboard, clear and exit
     if (timerSettings.enabled === false) {
       console.log("[Checkout Timer] Timer is disabled in app dashboard");
       stopTimer();
@@ -128,14 +127,14 @@ export default function() {
       } catch(e) {}
       return;
     }
-    
+
     render();
     startTimer();
   }
 
   function startTimer() {
     stopTimer();
-    
+
     let endTime = Date.now() + (timeRemaining * 1000);
     try {
       if (typeof sessionStorage !== 'undefined') {
@@ -148,7 +147,6 @@ export default function() {
       }
     } catch(e) {}
 
-    // Immediate initial sync
     const initialDiff = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
     timeRemaining = initialDiff;
     updateTimeDisplay();
@@ -159,12 +157,12 @@ export default function() {
         const diff = Math.max(0, Math.floor((endTime - now) / 1000));
         timeRemaining = diff;
         updateTimeDisplay();
-        
+
         if (diff <= 0) {
           stopTimer();
         }
       } catch (err) {
-        console.error("[Checkout Timer] Timer tick error:", err);
+        console.error("[Checkout Timer] Timer interval error:", err);
       }
     }, 1000);
   }
@@ -173,7 +171,7 @@ export default function() {
     const m = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
     const s = (timeRemaining % 60).toString().padStart(2, '0');
     const timeStr = `${m}:${s}`;
-    
+
     if (hasDocument) {
       if (timeTextEl) {
         if (timeTextEl.firstChild) {
@@ -186,7 +184,6 @@ export default function() {
         } catch(e) {}
       }
     } else {
-      // In Remote UI (Worker sandbox)
       if (containerText && timeTextEl) {
         try {
           containerText.removeChild(timeTextEl);
@@ -204,7 +201,7 @@ export default function() {
 
     let tone = 'info';
     const bg = (timerSettings.backgroundColor || '').toLowerCase();
-    if (bg.includes('e8f8e8') || bg.includes('green') || timerSettings.iconEnabled) {
+    if (bg.includes('e8f8e8') || bg.includes('green') || bg.includes('f8fff5') || timerSettings.iconEnabled) {
       tone = 'success';
     } else if (bg.includes('red') || bg.includes('critical')) {
       tone = 'critical';
@@ -218,13 +215,13 @@ export default function() {
     const fontSize = timerSettings.fontSize || 'base';
     containerText = createEl('s-text', { size: fontSize });
 
-    const labelEl = createEl('s-text', {}, timerSettings.text + ' ');
+    const labelEl = createEl('s-text', {}, (timerSettings.text || '') + ' ');
     containerText.appendChild(labelEl);
 
     const m = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
     const s = (timeRemaining % 60).toString().padStart(2, '0');
     timeTextEl = createEl('s-text', { type: 'strong' }, `${m}:${s}`);
-    
+
     containerText.appendChild(timeTextEl);
     banner.appendChild(containerText);
     root.appendChild(banner);

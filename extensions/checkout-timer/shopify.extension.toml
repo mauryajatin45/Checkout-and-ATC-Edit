@@ -23,11 +23,6 @@ module = "./src/index.js"
 
 [extensions.settings]
 [[extensions.settings.fields]]
-key = "enabled"
-type = "boolean"
-name = "Enable Timer"
-
-[[extensions.settings.fields]]
 key = "backend_url"
 type = "single_line_text_field"
-name = "Backend API URL (e.g. https://checkoutandatc.zoyava.terzettoo.com)"
+name = "Backend API URL (Optional - defaults automatically)"
