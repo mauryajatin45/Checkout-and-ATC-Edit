@@ -35,6 +35,39 @@
         var href = el.getAttribute("href") || "";
         var name = el.getAttribute("name") || "";
         var action = (el.form && el.form.getAttribute("action")) || "";
+        var currentPath = window.location.pathname || "";
+
+        if (!currentPath || currentPath.includes("/checkout")) return;
+
+        // If clicking a direct checkout / cart link, append attributes directly to href
+        if (el.tagName === "A" && href && (href.includes("/checkout") || href.includes("/cart"))) {
+          try {
+            var url = new URL(href, window.location.origin);
+            if (!url.searchParams.has("attributes[source_page]")) {
+              url.searchParams.set("attributes[source_page]", currentPath);
+              url.searchParams.set("attributes[source]", currentPath);
+              el.setAttribute("href", url.toString());
+            }
+          } catch (e) {}
+        }
+
+        // If form submission, inject hidden attribute inputs if not already present
+        if (el.form && (action.includes("/cart") || name === "checkout" || name === "add")) {
+          var form = el.form;
+          if (!form.querySelector("input[name='attributes[source_page]']")) {
+            var input1 = document.createElement("input");
+            input1.type = "hidden";
+            input1.name = "attributes[source_page]";
+            input1.value = currentPath;
+            form.appendChild(input1);
+
+            var input2 = document.createElement("input");
+            input2.type = "hidden";
+            input2.name = "attributes[source]";
+            input2.value = currentPath;
+            form.appendChild(input2);
+          }
+        }
 
         if (
           href.indexOf("/checkout") !== -1 ||
@@ -43,20 +76,17 @@
           name === "add" ||
           action.indexOf("/cart") !== -1
         ) {
-          var currentPath = window.location.pathname || "";
-          if (currentPath && !currentPath.includes("/checkout")) {
-            if (window.fetch) {
-              window.fetch("/cart/update.js", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  attributes: {
-                    source_page: currentPath,
-                    source: currentPath
-                  }
-                })
-              }).catch(function () {});
-            }
+          if (window.fetch) {
+            window.fetch("/cart/update.js", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                attributes: {
+                  source_page: currentPath,
+                  source: currentPath
+                }
+              })
+            }).catch(function () {});
           }
         }
       },

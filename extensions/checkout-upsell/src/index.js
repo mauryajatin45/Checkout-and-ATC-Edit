@@ -1,28 +1,16 @@
 // Checkout Upsell UI Extension
-// Matches the competitor's shipping protection / upsell design above Contact
+// Uses native Polaris Web Components (s-stack, s-box, s-text, s-image, s-button)
+// Matches competitor layout positioned directly above the Contact section
 
 export default function (arg1, arg2) {
-  let root = null;
   let api = null;
 
-  if (arg2) {
-    if (arg1 && arg1.createComponent) {
-      root = arg1;
-      api = arg2;
-    } else {
-      api = arg1;
-      root = arg2;
-    }
-  } else if (arg1) {
-    if (arg1.createComponent) {
-      root = arg1;
-    } else {
-      api = arg1;
-      root = api.extension ? api.extension.root : null;
-    }
-  }
-
-  if (!api && typeof globalThis !== "undefined" && globalThis.shopify) {
+  // Resolve Shopify Checkout API
+  if (arg1 && arg1.shop) {
+    api = arg1;
+  } else if (arg2 && arg2.shop) {
+    api = arg2;
+  } else if (typeof globalThis !== "undefined" && globalThis.shopify) {
     api = globalThis.shopify;
   }
 
@@ -31,43 +19,63 @@ export default function (arg1, arg2) {
     return;
   }
 
+  const { shop, settings: extSettings, lines, attributes, applyCartLinesChange, extension } = api;
+
   const shopDomain =
-    (api.shop && api.shop.myshopifyDomain) ||
+    (shop && shop.myshopifyDomain) ||
     (globalThis.shopify && globalThis.shopify.shop && globalThis.shopify.shop.myshopifyDomain) ||
     "";
 
-  // Auto-resolve backend URL
-  let baseUrl = (api.settings && api.settings.current && api.settings.current.backend_url) || "";
+  // Auto-resolve backend API base URL
+  const settingsVal = extSettings?.current || extSettings?.value || {};
+  let baseUrl = settingsVal?.backend_url || "";
   if (baseUrl) {
-    baseUrl = baseUrl.replace(/\/$/, "");
+    baseUrl = baseUrl.trim().replace(/\/$/, "");
   } else {
-    if (shopDomain.indexOf("a94f3b-3") !== -1) {
-      baseUrl = "https://checkoutandatc.zoyava.terzettoo.com";
-    } else if (shopDomain.indexOf("parrox-us") !== -1) {
+    const domainLower = String(shopDomain).toLowerCase();
+    if (domainLower.includes("parrox-us")) {
       baseUrl = "https://checkoutandatc.parrox.us.terzettoo.com";
-    } else if (shopDomain.indexOf("parrox") !== -1) {
+    } else if (domainLower.includes("parrox")) {
       baseUrl = "https://checkoutandatc.parrox.terzettoo.com";
     } else {
       baseUrl = "https://checkoutandatc.zoyava.terzettoo.com";
     }
   }
 
+  const isEditor = !!(extension && extension.editor);
+  const hasDocument = typeof document !== "undefined" && document.body;
+
   let currentCampaign = null;
   let isAddingMap = {};
   let isDescOpenMap = {};
-  let renderedContainer = null;
+  let container = null;
+
+  function createEl(tag, attrs = {}, textContent = null) {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (v !== undefined && v !== null) {
+        el.setAttribute(k, String(v));
+      }
+    }
+    if (textContent !== null && textContent !== undefined) {
+      el.textContent = String(textContent);
+    }
+    return el;
+  }
 
   function getCurrentLines() {
-    if (Array.isArray(api.lines)) return api.lines;
-    if (api.lines && Array.isArray(api.lines.value)) return api.lines.value;
-    if (api.lines && Array.isArray(api.lines.current)) return api.lines.current;
+    if (Array.isArray(lines)) return lines;
+    if (lines && Array.isArray(lines.value)) return lines.value;
+    if (lines && Array.isArray(lines.current)) return lines.current;
+    if (lines && Array.isArray(lines.__private_4_value)) return lines.__private_4_value;
     return [];
   }
 
   function getCurrentAttributes() {
-    if (Array.isArray(api.attributes)) return api.attributes;
-    if (api.attributes && Array.isArray(api.attributes.value)) return api.attributes.value;
-    if (api.attributes && Array.isArray(api.attributes.current)) return api.attributes.current;
+    if (Array.isArray(attributes)) return attributes;
+    if (attributes && Array.isArray(attributes.value)) return attributes.value;
+    if (attributes && Array.isArray(attributes.current)) return attributes.current;
+    if (attributes && Array.isArray(attributes.__private_4_value)) return attributes.__private_4_value;
     return [];
   }
 
@@ -79,16 +87,24 @@ export default function (arg1, arg2) {
         return attrs[i].value || "";
       }
     }
+
+    try {
+      if (typeof sessionStorage !== "undefined") {
+        const stored = sessionStorage.getItem("shopify_upsell_source_page");
+        if (stored) return stored;
+      }
+    } catch (e) {}
+
     return "";
   }
 
   function getCartProductIds() {
-    const lines = getCurrentLines();
+    const curLines = getCurrentLines();
     const ids = [];
-    for (let i = 0; i < lines.length; i++) {
-      const item = lines[i];
+    for (let i = 0; i < curLines.length; i++) {
+      const item = curLines[i];
       if (item.merchandise && item.merchandise.product && item.merchandise.product.id) {
-        ids.push(item.merchandise.product.id);
+        ids.push(String(item.merchandise.product.id).split("/").pop());
       }
     }
     return ids;
@@ -96,14 +112,13 @@ export default function (arg1, arg2) {
 
   function isVariantInCart(variantId) {
     if (!variantId) return false;
-    const lines = getCurrentLines();
-    return lines.some(function (l) {
-      return (
-        l.merchandise &&
-        (l.merchandise.id === variantId ||
-          l.merchandise.id.indexOf(variantId) !== -1 ||
-          variantId.indexOf(l.merchandise.id) !== -1)
-      );
+    const curLines = getCurrentLines();
+    const cleanTargetId = String(variantId).split("/").pop();
+
+    return curLines.some(function (l) {
+      if (!l.merchandise || !l.merchandise.id) return false;
+      const curId = String(l.merchandise.id).split("/").pop();
+      return curId === cleanTargetId;
     });
   }
 
@@ -113,16 +128,22 @@ export default function (arg1, arg2) {
     renderUI();
 
     try {
-      if (api.applyCartLinesChange) {
-        const res = await api.applyCartLinesChange({
+      if (applyCartLinesChange) {
+        // Ensure format is gid://shopify/ProductVariant/...
+        let variantGid = item.shopifyVariantId;
+        if (!variantGid.startsWith("gid://")) {
+          variantGid = `gid://shopify/ProductVariant/${variantGid}`;
+        }
+
+        const res = await applyCartLinesChange({
           type: "addCartLine",
-          merchandiseId: item.shopifyVariantId,
+          merchandiseId: variantGid,
           quantity: 1,
         });
-        console.log("[Checkout Upsell] Added line result:", res);
+        console.log("[Checkout Upsell] Added line:", res);
       }
     } catch (err) {
-      console.error("[Checkout Upsell] Failed to add item:", err);
+      console.error("[Checkout Upsell] Error adding item:", err);
     } finally {
       isAddingMap[item.id] = false;
       renderUI();
@@ -135,134 +156,131 @@ export default function (arg1, arg2) {
     renderUI();
 
     try {
-      const lines = getCurrentLines();
-      const matched = lines.find(function (l) {
-        return (
-          l.merchandise &&
-          (l.merchandise.id === item.shopifyVariantId ||
-            l.merchandise.id.indexOf(item.shopifyVariantId) !== -1 ||
-            item.shopifyVariantId.indexOf(l.merchandise.id) !== -1)
-        );
+      const curLines = getCurrentLines();
+      const cleanTargetId = String(item.shopifyVariantId).split("/").pop();
+
+      const matched = curLines.find(function (l) {
+        if (!l.merchandise || !l.merchandise.id) return false;
+        const curId = String(l.merchandise.id).split("/").pop();
+        return curId === cleanTargetId;
       });
 
-      if (matched && api.applyCartLinesChange) {
-        await api.applyCartLinesChange({
+      if (matched && applyCartLinesChange) {
+        await applyCartLinesChange({
           type: "removeCartLine",
           id: matched.id,
           quantity: matched.quantity,
         });
+        console.log("[Checkout Upsell] Removed line:", matched.id);
       }
     } catch (err) {
-      console.error("[Checkout Upsell] Failed to remove item:", err);
+      console.error("[Checkout Upsell] Error removing item:", err);
     } finally {
       isAddingMap[item.id] = false;
       renderUI();
     }
   }
 
-  // --- Rendering Implementation ---
+  // --- Rendering with Polaris Web Components ---
   function renderUI() {
+    if (!hasDocument) return;
+
+    if (!container) {
+      container = createEl("s-stack", { gap: "tight" });
+      document.body.appendChild(container);
+    }
+
+    // Clear previous children
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
+
     if (!currentCampaign || !currentCampaign.items || currentCampaign.items.length === 0) {
-      // Clear if no matching campaign
-      if (root && renderedContainer) {
-        try {
-          root.removeChild(renderedContainer);
-          renderedContainer = null;
-        } catch (e) {}
-      }
       return;
     }
 
-    if (root && root.createComponent) {
-      renderRemoteUI();
-    } else if (typeof document !== "undefined" && document.body) {
-      renderDomUI();
-    }
-  }
-
-  // Remote UI Mode (Vanilla JS with remote-ui)
-  function renderRemoteUI() {
-    if (renderedContainer) {
-      try {
-        root.removeChild(renderedContainer);
-      } catch (e) {}
-    }
-
-    // Main wrapper stack
-    const mainStack = root.createComponent("BlockStack", { spacing: "tight" });
-
-    // 1. Headline (Bold text matching competitor above box)
+    // 1. Headline (Bold text above the upsell box, matching competitor)
     if (currentCampaign.headline) {
-      const headlineText = root.createComponent(
-        "Text",
-        { size: "base", emphasis: "bold" },
+      const headlineText = createEl(
+        "s-text",
+        { type: "strong" },
         currentCampaign.headline
       );
-      mainStack.appendChild(headlineText);
+      container.appendChild(headlineText);
     }
 
-    // 2. Render each upsell item card
+    // 2. Render each upsell card
     for (let i = 0; i < currentCampaign.items.length; i++) {
       const item = currentCampaign.items[i];
       const inCart = isVariantInCart(item.shopifyVariantId);
       const isAdding = !!isAddingMap[item.id];
       const isDescOpen = !!isDescOpenMap[item.id];
 
-      // Outer Card Box
-      const cardBox = root.createComponent("Box", {
+      // Card Box (Outer container with border and padding)
+      const cardBox = createEl("s-box", {
+        padding: "base",
         border: "base",
         borderRadius: "base",
-        padding: "base",
+        background: "base",
       });
 
-      const cardStack = root.createComponent("BlockStack", { spacing: "tight" });
+      const cardStack = createEl("s-stack", { gap: "tight" });
 
-      // Top Row: Thumbnail + Title + Price
-      const topRow = root.createComponent("InlineStack", {
-        spacing: "base",
-        blockAlignment: "center",
+      // Top Row: Thumbnail + Title on Left, Prices on Right
+      const topRow = createEl("s-stack", {
+        direction: "inline",
+        gap: "base",
+        alignItems: "center",
+        justifyContent: "space-between",
       });
 
-      // Thumbnail Image
+      // Left Info (Thumbnail + Title)
+      const leftStack = createEl("s-stack", {
+        direction: "inline",
+        gap: "tight",
+        alignItems: "center",
+      });
+
       if (item.imageUrl) {
-        const thumb = root.createComponent("Image", {
-          source: item.imageUrl,
+        const thumb = createEl("s-image", {
+          src: item.imageUrl,
           alt: item.title || "Upsell Item",
-          border: "base",
           borderRadius: "base",
+          inlineSize: "44px",
+          blockSize: "44px",
+          objectFit: "cover",
         });
-        topRow.appendChild(thumb);
+        leftStack.appendChild(thumb);
       } else {
-        const placeholder = root.createComponent("Text", { size: "large" }, "📦");
-        topRow.appendChild(placeholder);
+        const placeholder = createEl("s-text", { type: "strong" }, "📦 ");
+        leftStack.appendChild(placeholder);
       }
 
-      // Title & Subtitle
-      const titleStack = root.createComponent("BlockStack", { spacing: "none" });
-      const titleText = root.createComponent(
-        "Text",
-        { size: "base", emphasis: "bold" },
+      const titleText = createEl(
+        "s-text",
+        { type: "strong" },
         item.title || "Product Offer"
       );
-      titleStack.appendChild(titleText);
-      topRow.appendChild(titleStack);
+      leftStack.appendChild(titleText);
+      topRow.appendChild(leftStack);
 
-      // Price Stack (Right aligned)
-      const priceRow = root.createComponent("InlineStack", {
-        spacing: "extraTight",
-        blockAlignment: "center",
+      // Right Info (Prices)
+      const priceStack = createEl("s-stack", {
+        direction: "inline",
+        gap: "tight",
+        alignItems: "center",
       });
 
       if (item.strikethroughPrice) {
         const strikePrice = item.strikethroughPrice.startsWith("$")
           ? item.strikethroughPrice
           : `$${item.strikethroughPrice}`;
-        const strikeText = root.createComponent(
-          "Text",
-          { appearance: "subdued", size: "small", style: { textDecoration: "line-through" } },
+        const strikeText = createEl(
+          "s-text",
+          { type: "redundant", color: "subdued" },
           strikePrice
         );
-        priceRow.appendChild(strikeText);
+        priceStack.appendChild(strikeText);
       }
 
       const displayPrice = item.price
@@ -270,40 +288,34 @@ export default function (arg1, arg2) {
           ? item.price
           : `$${item.price}`
         : "$4.99";
-      const sellText = root.createComponent(
-        "Text",
-        { size: "base", emphasis: "bold" },
-        displayPrice
-      );
-      priceRow.appendChild(sellText);
+      const sellText = createEl("s-text", { type: "strong" }, displayPrice);
+      priceStack.appendChild(sellText);
 
-      topRow.appendChild(priceRow);
+      topRow.appendChild(priceStack);
       cardStack.appendChild(topRow);
 
-      // Collapsible Product Description
+      // Collapsible Description Accordion
       if (item.description) {
-        const descToggleBtn = root.createComponent(
-          "Button",
-          {
-            plain: true,
-            onPress: function () {
-              isDescOpenMap[item.id] = !isDescOpenMap[item.id];
-              renderUI();
-            },
-          },
+        const descBtn = createEl(
+          "s-button",
+          { variant: "secondary", type: "button" },
           isDescOpen ? "Product description ▲" : "Product description ▼"
         );
-        cardStack.appendChild(descToggleBtn);
+        descBtn.onclick = function () {
+          isDescOpenMap[item.id] = !isDescOpenMap[item.id];
+          renderUI();
+        };
+        cardStack.appendChild(descBtn);
 
         if (isDescOpen) {
-          const descBox = root.createComponent("Box", {
+          const descBox = createEl("s-box", {
             padding: "tight",
             background: "subdued",
             borderRadius: "base",
           });
-          const descText = root.createComponent(
-            "Text",
-            { size: "small", appearance: "subdued" },
+          const descText = createEl(
+            "s-text",
+            { type: "small", color: "subdued" },
             item.description
           );
           descBox.appendChild(descText);
@@ -311,216 +323,49 @@ export default function (arg1, arg2) {
         }
       }
 
-      // Action Button
-      let btn;
-      if (inCart) {
-        btn = root.createComponent(
-          "Button",
-          {
-            kind: "secondary",
-            loading: isAdding,
-            onPress: function () {
-              handleRemoveFromCart(item);
-            },
-          },
-          "Added ✓ (Tap to remove)"
-        );
+      // Action Button (Full-width "Add to cart" with customizable colors)
+      const btn = createEl("s-button", {
+        variant: inCart ? "secondary" : "primary",
+        type: "button",
+      });
+
+      if (isAdding) {
+        btn.setAttribute("loading", "true");
+        btn.textContent = inCart ? "Removing..." : "Adding...";
+      } else if (inCart) {
+        btn.textContent = "Added ✓ (Tap to remove)";
       } else {
-        btn = root.createComponent(
-          "Button",
-          {
-            kind: "primary",
-            loading: isAdding,
-            onPress: function () {
-              handleAddToCart(item);
-            },
-          },
-          "Add to cart"
+        btn.textContent = "Add to cart";
+      }
+
+      // Apply merchant-configured button colors
+      const btnBg = currentCampaign.buttonColor || "#0066cc";
+      const btnText = currentCampaign.buttonTextColor || "#ffffff";
+
+      if (!inCart && !isAdding) {
+        btn.style.backgroundColor = btnBg;
+        btn.style.color = btnText;
+        btn.setAttribute(
+          "style",
+          `background-color: ${btnBg} !important; color: ${btnText} !important; border-color: ${btnBg} !important;`
         );
       }
+
+      btn.onclick = function () {
+        if (inCart) {
+          handleRemoveFromCart(item);
+        } else {
+          handleAddToCart(item);
+        }
+      };
 
       cardStack.appendChild(btn);
       cardBox.appendChild(cardStack);
-      mainStack.appendChild(cardBox);
-    }
-
-    renderedContainer = mainStack;
-    root.appendChild(renderedContainer);
-  }
-
-  // DOM Web Components Mode (for modern sandbox)
-  function renderDomUI() {
-    let container = document.getElementById("checkout-upsell-container");
-    if (!container) {
-      container = document.createElement("div");
-      container.id = "checkout-upsell-container";
-      container.style.marginBottom = "16px";
-      document.body.appendChild(container);
-    }
-    container.innerHTML = "";
-
-    // Headline
-    if (currentCampaign.headline) {
-      const headline = document.createElement("div");
-      headline.style.fontSize = "14px";
-      headline.style.fontWeight = "600";
-      headline.style.color = "#111";
-      headline.style.marginBottom = "8px";
-      headline.innerText = currentCampaign.headline;
-      container.appendChild(headline);
-    }
-
-    // Cards
-    for (let i = 0; i < currentCampaign.items.length; i++) {
-      const item = currentCampaign.items[i];
-      const inCart = isVariantInCart(item.shopifyVariantId);
-      const isAdding = !!isAddingMap[item.id];
-      const isDescOpen = !!isDescOpenMap[item.id];
-
-      const card = document.createElement("div");
-      card.style.backgroundColor = "#fff";
-      card.style.border = "1px solid #d9d9d9";
-      card.style.borderRadius = "8px";
-      card.style.padding = "12px";
-      card.style.marginBottom = "10px";
-      card.style.boxShadow = "0 1px 2px rgba(0,0,0,0.04)";
-
-      // Top Row
-      const topRow = document.createElement("div");
-      topRow.style.display = "flex";
-      topRow.style.alignItems = "center";
-      topRow.style.justifyContent = "space-between";
-      topRow.style.gap = "10px";
-
-      const left = document.createElement("div");
-      left.style.display = "flex";
-      left.style.alignItems = "center";
-      left.style.gap = "10px";
-      left.style.flex = "1";
-
-      if (item.imageUrl) {
-        const img = document.createElement("img");
-        img.src = item.imageUrl;
-        img.alt = item.title || "";
-        img.style.width = "40px";
-        img.style.height = "40px";
-        img.style.objectFit = "cover";
-        img.style.borderRadius = "6px";
-        img.style.border = "1px solid #eee";
-        left.appendChild(img);
-      } else {
-        const icon = document.createElement("div");
-        icon.innerText = "📦";
-        icon.style.fontSize = "22px";
-        left.appendChild(icon);
-      }
-
-      const title = document.createElement("div");
-      title.style.fontWeight = "600";
-      title.style.fontSize = "14px";
-      title.style.color = "#111";
-      title.innerText = item.title || "Product Offer";
-      left.appendChild(title);
-      topRow.appendChild(left);
-
-      // Price right
-      const priceDiv = document.createElement("div");
-      priceDiv.style.textAlign = "right";
-      priceDiv.style.whiteSpace = "nowrap";
-
-      if (item.strikethroughPrice) {
-        const sSpan = document.createElement("span");
-        sSpan.style.textDecoration = "line-through";
-        sSpan.style.color = "#888";
-        sSpan.style.fontSize = "12px";
-        sSpan.style.marginRight = "6px";
-        sSpan.innerText = item.strikethroughPrice.startsWith("$")
-          ? item.strikethroughPrice
-          : `$${item.strikethroughPrice}`;
-        priceDiv.appendChild(sSpan);
-      }
-
-      const pSpan = document.createElement("span");
-      pSpan.style.fontWeight = "700";
-      pSpan.style.fontSize = "14px";
-      pSpan.style.color = "#111";
-      pSpan.innerText = item.price
-        ? item.price.startsWith("$")
-          ? item.price
-          : `$${item.price}`
-        : "$4.99";
-      priceDiv.appendChild(pSpan);
-
-      topRow.appendChild(priceDiv);
-      card.appendChild(topRow);
-
-      // Description Accordion
-      if (item.description) {
-        const descBtn = document.createElement("button");
-        descBtn.type = "button";
-        descBtn.style.background = "none";
-        descBtn.style.border = "none";
-        descBtn.style.padding = "4px 0";
-        descBtn.style.marginTop = "6px";
-        descBtn.style.fontSize = "12px";
-        descBtn.style.color = "#555";
-        descBtn.style.cursor = "pointer";
-        descBtn.innerText = isDescOpen ? "Product description ▲" : "Product description ▼";
-        descBtn.onclick = function () {
-          isDescOpenMap[item.id] = !isDescOpenMap[item.id];
-          renderUI();
-        };
-        card.appendChild(descBtn);
-
-        if (isDescOpen) {
-          const descBox = document.createElement("div");
-          descBox.style.marginTop = "4px";
-          descBox.style.padding = "6px 8px";
-          descBox.style.backgroundColor = "#f7f7f7";
-          descBox.style.borderRadius = "4px";
-          descBox.style.fontSize = "12px";
-          descBox.style.color = "#444";
-          descBox.innerText = item.description;
-          card.appendChild(descBox);
-        }
-      }
-
-      // Add Button
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.style.width = "100%";
-      btn.style.marginTop = "10px";
-      btn.style.padding = "10px 14px";
-      btn.style.borderRadius = "6px";
-      btn.style.fontSize = "14px";
-      btn.style.fontWeight = "600";
-      btn.style.cursor = "pointer";
-      btn.style.transition = "all 0.2s ease";
-
-      if (inCart) {
-        btn.innerText = isAdding ? "Updating..." : "Added ✓ (Tap to remove)";
-        btn.style.backgroundColor = "#f0f2f5";
-        btn.style.color = "#333";
-        btn.style.border = "1px solid #ccc";
-        btn.onclick = function () {
-          handleRemoveFromCart(item);
-        };
-      } else {
-        btn.innerText = isAdding ? "Adding..." : "Add to cart";
-        btn.style.backgroundColor = "#0066cc";
-        btn.style.color = "#ffffff";
-        btn.style.border = "none";
-        btn.onclick = function () {
-          handleAddToCart(item);
-        };
-      }
-
-      card.appendChild(btn);
-      container.appendChild(card);
+      container.appendChild(cardBox);
     }
   }
 
-  // --- Fetch Campaign Logic ---
+  // --- Fetch Campaign from Backend ---
   async function loadUpsellCampaign() {
     const source = getSourcePage();
     const cartProductIds = getCartProductIds();
@@ -529,32 +374,46 @@ export default function (arg1, arg2) {
       shopDomain
     )}&source=${encodeURIComponent(source)}&cart_products=${encodeURIComponent(
       cartProductIds.join(",")
-    )}`;
+    )}&is_editor=${isEditor ? "true" : "false"}&_t=${Date.now()}`;
 
     try {
-      const res = await fetch(fetchUrl);
+      console.log("[Checkout Upsell] Fetching campaign from:", fetchUrl);
+      const res = await fetch(fetchUrl, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+        },
+      });
+
       if (res.ok) {
         const data = await res.json();
         currentCampaign = data.campaign || null;
+        console.log(
+          "[Checkout Upsell] Loaded campaign:",
+          currentCampaign ? currentCampaign.name : "None matching"
+        );
         renderUI();
+      } else {
+        console.warn("[Checkout Upsell] API returned status:", res.status);
       }
     } catch (err) {
-      console.error("[Checkout Upsell] Error fetching campaign:", err);
+      console.error("[Checkout Upsell] Network error loading campaign:", err);
     }
   }
 
   // Initial load
   loadUpsellCampaign();
 
-  // Subscribe to changes in lines or attributes
-  if (api.lines && typeof api.lines.subscribe === "function") {
-    api.lines.subscribe(function () {
+  // Subscriptions to cart changes
+  if (lines && typeof lines.subscribe === "function") {
+    lines.subscribe(function () {
       renderUI();
     });
   }
 
-  if (api.attributes && typeof api.attributes.subscribe === "function") {
-    api.attributes.subscribe(function () {
+  if (attributes && typeof attributes.subscribe === "function") {
+    attributes.subscribe(function () {
       loadUpsellCampaign();
     });
   }

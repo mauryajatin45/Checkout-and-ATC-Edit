@@ -102,6 +102,8 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   const sourcePage = (formData.get("sourcePage") as string) || "*";
   const headline = (formData.get("headline") as string) || "Lost, stolen or damaged? We reship it free, no questions.";
   const description = formData.get("description") as string;
+  const buttonColor = (formData.get("buttonColor") as string) || "#0066cc";
+  const buttonTextColor = (formData.get("buttonTextColor") as string) || "#ffffff";
   const rawItems = formData.get("items") as string;
 
   let items: UpsellItemInput[] = [];
@@ -123,6 +125,8 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         sourcePage,
         headline,
         description,
+        buttonColor,
+        buttonTextColor,
         items,
       });
     } else if (id) {
@@ -132,6 +136,8 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         sourcePage,
         headline,
         description,
+        buttonColor,
+        buttonTextColor,
         items,
       });
     }
@@ -168,6 +174,8 @@ export default function UpsellCampaignForm() {
     campaign?.headline || "Lost, stolen or damaged? We reship it free, no questions."
   );
   const [description, setDescription] = useState(campaign?.description || "");
+  const [buttonColor, setButtonColor] = useState(campaign?.buttonColor || "#0066cc");
+  const [buttonTextColor, setButtonTextColor] = useState(campaign?.buttonTextColor || "#ffffff");
 
   // Initial items
   const initialItems: FormItem[] = (campaign?.items || []).map((item: any) => {
@@ -301,6 +309,8 @@ export default function UpsellCampaignForm() {
     formData.append("sourcePage", sourcePage.trim());
     formData.append("headline", headline.trim());
     formData.append("description", description.trim());
+    formData.append("buttonColor", buttonColor.trim());
+    formData.append("buttonTextColor", buttonTextColor.trim());
 
     const itemsPayload: UpsellItemInput[] = items.map((it, idx) => ({
       shopifyProductId: it.shopifyProductId,
@@ -397,6 +407,127 @@ export default function UpsellCampaignForm() {
                     autoComplete="off"
                     helpText="Shown directly above the product upsell box at checkout."
                   />
+                </BlockStack>
+              </Card>
+
+              {/* Button Styling Card */}
+              <Card>
+                <BlockStack gap="400">
+                  <Text variant="headingMd" as="h2">
+                    Button Appearance & Colors
+                  </Text>
+                  <Text variant="bodySm" tone="subdued" as="p">
+                    Customize the &quot;Add to cart&quot; button background and text color to match your store branding.
+                  </Text>
+
+                  <Layout>
+                    <Layout.Section variant="oneHalf">
+                      <BlockStack gap="200">
+                        <TextField
+                          label="Button Background Color"
+                          value={buttonColor}
+                          onChange={setButtonColor}
+                          placeholder="#0066cc"
+                          autoComplete="off"
+                          prefix={
+                            <div
+                              style={{
+                                width: 20,
+                                height: 20,
+                                borderRadius: 4,
+                                backgroundColor: buttonColor,
+                                border: "1px solid #ccc",
+                                marginRight: 4,
+                              }}
+                            />
+                          }
+                          helpText="Hex color code (e.g. #0066cc)."
+                        />
+                        <InlineStack gap="100">
+                          {[
+                            { label: "Default Blue", color: "#0066cc" },
+                            { label: "Shopify Green", color: "#008060" },
+                            { label: "Black", color: "#111111" },
+                            { label: "Navy", color: "#1a2b49" },
+                            { label: "Purple", color: "#b978d1" },
+                            { label: "Red", color: "#d82c0d" },
+                          ].map((p) => (
+                            <button
+                              key={p.color}
+                              type="button"
+                              onClick={() => setButtonColor(p.color)}
+                              style={{
+                                width: 26,
+                                height: 26,
+                                borderRadius: 6,
+                                backgroundColor: p.color,
+                                border:
+                                  buttonColor.toLowerCase() === p.color.toLowerCase()
+                                    ? "2px solid #000"
+                                    : "1px solid #ccc",
+                                cursor: "pointer",
+                                padding: 0,
+                                outline: "none",
+                              }}
+                              title={p.label}
+                            />
+                          ))}
+                        </InlineStack>
+                      </BlockStack>
+                    </Layout.Section>
+
+                    <Layout.Section variant="oneHalf">
+                      <BlockStack gap="200">
+                        <TextField
+                          label="Button Text Color"
+                          value={buttonTextColor}
+                          onChange={setButtonTextColor}
+                          placeholder="#ffffff"
+                          autoComplete="off"
+                          prefix={
+                            <div
+                              style={{
+                                width: 20,
+                                height: 20,
+                                borderRadius: 4,
+                                backgroundColor: buttonTextColor,
+                                border: "1px solid #ccc",
+                                marginRight: 4,
+                              }}
+                            />
+                          }
+                          helpText="Hex color for button text."
+                        />
+                        <InlineStack gap="100">
+                          {[
+                            { label: "White", color: "#ffffff" },
+                            { label: "Black", color: "#111111" },
+                            { label: "Light Gray", color: "#f4f4f4" },
+                          ].map((p) => (
+                            <button
+                              key={p.color}
+                              type="button"
+                              onClick={() => setButtonTextColor(p.color)}
+                              style={{
+                                width: 26,
+                                height: 26,
+                                borderRadius: 6,
+                                backgroundColor: p.color,
+                                border:
+                                  buttonTextColor.toLowerCase() === p.color.toLowerCase()
+                                    ? "2px solid #000"
+                                    : "1px solid #ccc",
+                                cursor: "pointer",
+                                padding: 0,
+                                outline: "none",
+                              }}
+                              title={p.label}
+                            />
+                          ))}
+                        </InlineStack>
+                      </BlockStack>
+                    </Layout.Section>
+                  </Layout>
                 </BlockStack>
               </Card>
 
@@ -724,21 +855,22 @@ export default function UpsellCampaignForm() {
                           )}
                         </div>
 
-                        {/* Full-width Blue Add to Cart Button */}
+                        {/* Full-width Add to Cart Button */}
                         <div style={{ marginTop: 12 }}>
                           <button
                             type="button"
                             style={{
                               width: "100%",
                               padding: "10px 14px",
-                              backgroundColor: "#0066cc",
-                              color: "#ffffff",
+                              backgroundColor: buttonColor || "#0066cc",
+                              color: buttonTextColor || "#ffffff",
                               border: "none",
                               borderRadius: 8,
                               fontSize: 14,
                               fontWeight: 600,
                               cursor: "pointer",
                               textAlign: "center",
+                              transition: "background-color 0.2s ease",
                             }}
                           >
                             Add to cart

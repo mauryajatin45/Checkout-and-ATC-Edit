@@ -18,6 +18,8 @@ export interface UpsellCampaignInput {
   sourcePage: string;
   headline?: string | null;
   description?: string | null;
+  buttonColor?: string | null;
+  buttonTextColor?: string | null;
   priority?: number;
   items: UpsellItemInput[];
 }
@@ -75,6 +77,8 @@ export async function createUpsellCampaign(shopDomain: string, data: UpsellCampa
       sourcePage: data.sourcePage.trim(),
       headline: data.headline || "Lost, stolen or damaged? We reship it free, no questions.",
       description: data.description || null,
+      buttonColor: data.buttonColor || "#0066cc",
+      buttonTextColor: data.buttonTextColor || "#ffffff",
       priority: data.priority || 0,
       items: {
         create: data.items.map((item, index) => ({
@@ -125,6 +129,8 @@ export async function updateUpsellCampaign(shopDomain: string, id: string, data:
         sourcePage: data.sourcePage.trim(),
         headline: data.headline ?? existing.headline,
         description: data.description ?? existing.description,
+        buttonColor: data.buttonColor ?? existing.buttonColor ?? "#0066cc",
+        buttonTextColor: data.buttonTextColor ?? existing.buttonTextColor ?? "#ffffff",
         priority: data.priority ?? existing.priority,
         items: {
           create: data.items.map((item, index) => ({
@@ -182,7 +188,8 @@ export async function toggleUpsellCampaign(shopDomain: string, id: string, enabl
 export async function getMatchingUpsell(
   shopDomain: string,
   sourceParam?: string | null,
-  cartProductIds?: string[] | null
+  cartProductIds?: string[] | null,
+  isEditor?: boolean
 ) {
   const store = await prisma.store.findUnique({
     where: { shopDomain },
@@ -201,6 +208,11 @@ export async function getMatchingUpsell(
 
   if (!store || !store.upsellCampaigns || store.upsellCampaigns.length === 0) {
     return null;
+  }
+
+  // In Checkout Editor / Preview mode, always return the top active campaign
+  if (isEditor && store.upsellCampaigns.length > 0) {
+    return store.upsellCampaigns[0];
   }
 
   const cleanSource = (sourceParam || "").trim().toLowerCase();
@@ -245,6 +257,11 @@ export async function getMatchingUpsell(
     (c) => c.sourcePage.trim() === "*" || c.sourcePage.trim().toLowerCase() === "all"
   );
   if (universal) return universal;
+
+  // 4. If cleanSource is empty and store has an active campaign, return it so checkout test works immediately
+  if (!cleanSource && store.upsellCampaigns.length === 1) {
+    return store.upsellCampaigns[0];
+  }
 
   return null;
 }

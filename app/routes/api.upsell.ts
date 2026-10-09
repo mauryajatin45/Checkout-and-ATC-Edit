@@ -28,8 +28,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     return json({ error: "Missing shop parameter" }, { status: 400, headers: corsHeaders });
   }
 
+  const isEditor =
+    url.searchParams.get("is_editor") === "true" ||
+    url.searchParams.get("preview") === "true";
+
   try {
-    const campaign = await getMatchingUpsell(shopDomain, sourceParam, cartProductIds);
+    const campaign = await getMatchingUpsell(shopDomain, sourceParam, cartProductIds, isEditor);
 
     return json(
       {
@@ -40,6 +44,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
               headline: campaign.headline,
               description: campaign.description,
               sourcePage: campaign.sourcePage,
+              buttonColor: campaign.buttonColor || "#0066cc",
+              buttonTextColor: campaign.buttonTextColor || "#ffffff",
               items: campaign.items.map((item) => ({
                 id: item.id,
                 shopifyProductId: item.shopifyProductId,
