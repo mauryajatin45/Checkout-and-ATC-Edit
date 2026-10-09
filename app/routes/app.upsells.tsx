@@ -119,7 +119,7 @@ export default function UpsellsIndex() {
             </Button>
             <Button
               size="micro"
-              onClick={() => navigate(`/app/upsells/${id}`)}
+              url={`/app/upsells/${id}`}
             >
               Edit
             </Button>
@@ -142,10 +142,14 @@ export default function UpsellsIndex() {
       subtitle="Show targeted upsell products in checkout based on which page the customer came from."
       primaryAction={{
         content: "Create Campaign",
-        onAction: () => navigate("/app/upsells/new"),
+        url: "/app/upsells/new",
       }}
     >
-      <TitleBar title="Checkout Upsells" />
+      <TitleBar title="Checkout Upsells">
+        <button variant="primary" onClick={() => navigate("/app/upsells/new")}>
+          Create Campaign
+        </button>
+      </TitleBar>
       <Layout>
         <Layout.Section>
           <Card padding="0">
@@ -155,7 +159,7 @@ export default function UpsellsIndex() {
                   heading="Create your first checkout upsell"
                   action={{
                     content: "Create Campaign",
-                    onAction: () => navigate("/app/upsells/new"),
+                    url: "/app/upsells/new",
                   }}
                   image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
                 >

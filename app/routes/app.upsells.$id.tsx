@@ -331,14 +331,18 @@ export default function UpsellCampaignForm() {
   return (
     <Page
       title={isNew ? "Create Checkout Upsell Campaign" : `Edit Campaign: ${name || "Untitled"}`}
-      backAction={{ content: "Campaigns", onAction: () => navigate("/app/upsells") }}
+      backAction={{ content: "Campaigns", url: "/app/upsells" }}
       primaryAction={{
         content: isSubmitting ? "Saving..." : "Save Campaign",
         onAction: handleSave,
         loading: isSubmitting,
       }}
     >
-      <TitleBar title={isNew ? "New Upsell Campaign" : "Edit Campaign"} />
+      <TitleBar title={isNew ? "New Upsell Campaign" : "Edit Campaign"}>
+        <button variant="primary" onClick={handleSave}>
+          Save Campaign
+        </button>
+      </TitleBar>
       <BlockStack gap="500">
         {errorMessage && (
           <Banner tone="critical" onDismiss={() => setErrorMessage(null)}>
