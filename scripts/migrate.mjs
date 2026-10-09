@@ -26,7 +26,10 @@ const OUR_TABLES = [
   "StickyAtcConfig",
   "CheckoutConfig",
   "CustomReview",
+  "CheckoutUpsellCampaign",
+  "CheckoutUpsellItem",
 ];
+
 
 const log = (...a) => console.log("[migrate]", ...a);
 

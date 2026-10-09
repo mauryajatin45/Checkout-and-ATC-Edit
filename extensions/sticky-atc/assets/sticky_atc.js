@@ -124,4 +124,17 @@ document.addEventListener("DOMContentLoaded", function () {
       })
       .catch((err) => console.error("Error loading Sticky ATC config", err));
   });
+
+  // Track source page in cart attributes
+  try {
+    var pName = window.location.pathname;
+    if (pName && !pName.includes('/checkout') && !pName.includes('/cart')) {
+      fetch('/cart/update.js', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attributes: { source_page: pName, source: pName } })
+      }).catch(function() {});
+    }
+  } catch (e) {}
 });
+

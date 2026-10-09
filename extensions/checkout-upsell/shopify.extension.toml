@@ -1,0 +1,20 @@
+api_version = "2026-07"
+
+[[extensions]]
+name = "Checkout Upsell"
+handle = "checkout-upsell"
+type = "ui_extension"
+
+[extensions.capabilities]
+network_access = true
+api_access = true
+
+[[extensions.targeting]]
+target = "purchase.checkout.block.render"
+module = "./src/index.js"
+
+[extensions.settings]
+[[extensions.settings.fields]]
+key = "backend_url"
+type = "single_line_text_field"
+name = "Backend API URL (Optional override)"
