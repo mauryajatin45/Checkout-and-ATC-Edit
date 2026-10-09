@@ -141,7 +141,7 @@ export default function UpsellsIndex() {
       subtitle="Show targeted upsell products in checkout based on which page the customer came from."
       primaryAction={{
         content: "Create Campaign",
-        url: "/app/upsells/new",
+        onAction: () => navigate("/app/upsells/new"),
       }}
     >
       <TitleBar title="Checkout Upsells" />
@@ -154,17 +154,14 @@ export default function UpsellsIndex() {
                   heading="Create your first checkout upsell"
                   action={{
                     content: "Create Campaign",
-                    url: "/app/upsells/new",
+                    onAction: () => navigate("/app/upsells/new"),
                   }}
                   image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
                 >
-                  <p style={{ marginBottom: "16px" }}>
+                  <p>
                     Target specific landing pages or product pages to display one-click add-to-cart upsells
                     above the checkout contact section.
                   </p>
-                  <Button variant="primary" size="large" url="/app/upsells/new">
-                    Create Campaign
-                  </Button>
                 </EmptyState>
               </Box>
             ) : (

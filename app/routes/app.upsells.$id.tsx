@@ -331,7 +331,7 @@ export default function UpsellCampaignForm() {
   return (
     <Page
       title={isNew ? "Create Checkout Upsell Campaign" : `Edit Campaign: ${name || "Untitled"}`}
-      backAction={{ content: "Campaigns", url: "/app/upsells" }}
+      backAction={{ content: "Campaigns", onAction: () => navigate("/app/upsells") }}
       primaryAction={{
         content: isSubmitting ? "Saving..." : "Save Campaign",
         onAction: handleSave,
