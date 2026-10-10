@@ -215,17 +215,39 @@ export async function getMatchingUpsell(
     return store.upsellCampaigns[0];
   }
 
-  const cleanSource = (sourceParam || "").trim().toLowerCase();
+  function normalizePath(raw: string): string {
+    if (!raw) return "";
+    let clean = raw.trim().toLowerCase();
+    try {
+      if (clean.startsWith("http://") || clean.startsWith("https://")) {
+        clean = new URL(clean).pathname;
+      }
+    } catch (e) {}
+    clean = clean.replace(/^(?:https?:\/\/)?(?:www\.)?[^\/]+/, "");
+    clean = clean.split("?")[0].split("#")[0].replace(/\/+$/, "");
+    if (clean && !clean.startsWith("/")) clean = "/" + clean;
+    return clean;
+  }
 
-  // 1. Try exact or partial match with the clean source parameter
-  if (cleanSource) {
+  const cleanSource = (sourceParam || "").trim().toLowerCase();
+  const normSource = normalizePath(cleanSource);
+  const sourceSlug = normSource.split("/").pop() || "";
+
+  // 1. Try exact, normalized, or partial match with the clean source parameter
+  if (cleanSource || normSource) {
     for (const campaign of store.upsellCampaigns) {
       const campSource = campaign.sourcePage.trim().toLowerCase();
       // Ignore universal wildcard in specific matching
       if (campSource === "*" || campSource === "all") continue;
 
+      const normCamp = normalizePath(campSource);
+      const campSlug = normCamp.split("/").pop() || "";
+
       if (
         campSource === cleanSource ||
+        (normSource && normCamp && normCamp === normSource) ||
+        (sourceSlug && campSlug && campSlug === sourceSlug) ||
+        (normSource && normCamp && (normCamp.includes(normSource) || normSource.includes(normCamp))) ||
         cleanSource.includes(campSource) ||
         campSource.includes(cleanSource)
       ) {

@@ -82,13 +82,7 @@ export default function() {
       const fetchUrl = `${apiUrl}?shop=${encodeURIComponent(shop?.myshopifyDomain || '')}&_t=${Date.now()}`;
       console.log("[Checkout Timer] Fetching settings from:", fetchUrl);
 
-      const res = await fetch(fetchUrl, {
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
-        }
-      });
+      const res = await fetch(fetchUrl);
 
       if (res.ok) {
         const data = await res.json();
