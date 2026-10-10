@@ -49,18 +49,50 @@ export default function (arg1, arg2) {
   let isAddingMap = {};
   let isDescOpenMap = {};
   let container = null;
+  let lastFetchedKey = "";
+  let isFetching = false;
 
+  // Helper to create element with attributes and text, compatible with remote-ui DOM shim
   function createEl(tag, attrs = {}, textContent = null) {
     const el = document.createElement(tag);
+
     for (const [k, v] of Object.entries(attrs)) {
       if (v !== undefined && v !== null) {
-        el.setAttribute(k, String(v));
+        // Convert camelCase to kebab-case for HTML attribute
+        const kebabKey = k.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+        el.setAttribute(kebabKey, String(v));
+
+        // Also set as JS property if property is supported on element
+        try {
+          el[k] = v;
+        } catch (e) {}
       }
     }
+
     if (textContent !== null && textContent !== undefined) {
-      el.textContent = String(textContent);
+      try {
+        el.appendChild(document.createTextNode(String(textContent)));
+      } catch (e) {
+        try {
+          el.textContent = String(textContent);
+        } catch (e2) {}
+      }
     }
+
     return el;
+  }
+
+  function setElementText(el, text) {
+    while (el.firstChild) {
+      el.removeChild(el.firstChild);
+    }
+    try {
+      el.appendChild(document.createTextNode(String(text)));
+    } catch (e) {
+      try {
+        el.textContent = String(text);
+      } catch (e2) {}
+    }
   }
 
   function getCurrentLines() {
@@ -103,7 +135,7 @@ export default function (arg1, arg2) {
     const ids = [];
     for (let i = 0; i < curLines.length; i++) {
       const item = curLines[i];
-      if (item.merchandise && item.merchandise.product && item.merchandise.product.id) {
+      if (item && item.merchandise && item.merchandise.product && item.merchandise.product.id) {
         ids.push(String(item.merchandise.product.id).split("/").pop());
       }
     }
@@ -116,21 +148,20 @@ export default function (arg1, arg2) {
     const cleanTargetId = String(variantId).split("/").pop();
 
     return curLines.some(function (l) {
-      if (!l.merchandise || !l.merchandise.id) return false;
+      if (!l || !l.merchandise || !l.merchandise.id) return false;
       const curId = String(l.merchandise.id).split("/").pop();
       return curId === cleanTargetId;
     });
   }
 
   async function handleAddToCart(item) {
-    if (!item.shopifyVariantId || isAddingMap[item.id]) return;
+    if (!item || !item.shopifyVariantId || isAddingMap[item.id]) return;
     isAddingMap[item.id] = true;
     renderUI();
 
     try {
       if (applyCartLinesChange) {
-        // Ensure format is gid://shopify/ProductVariant/...
-        let variantGid = item.shopifyVariantId;
+        let variantGid = String(item.shopifyVariantId);
         if (!variantGid.startsWith("gid://")) {
           variantGid = `gid://shopify/ProductVariant/${variantGid}`;
         }
@@ -151,7 +182,7 @@ export default function (arg1, arg2) {
   }
 
   async function handleRemoveFromCart(item) {
-    if (!item.shopifyVariantId || isAddingMap[item.id]) return;
+    if (!item || !item.shopifyVariantId || isAddingMap[item.id]) return;
     isAddingMap[item.id] = true;
     renderUI();
 
@@ -160,18 +191,18 @@ export default function (arg1, arg2) {
       const cleanTargetId = String(item.shopifyVariantId).split("/").pop();
 
       const matched = curLines.find(function (l) {
-        if (!l.merchandise || !l.merchandise.id) return false;
+        if (!l || !l.merchandise || !l.merchandise.id) return false;
         const curId = String(l.merchandise.id).split("/").pop();
         return curId === cleanTargetId;
       });
 
       if (matched && applyCartLinesChange) {
-        await applyCartLinesChange({
+        const res = await applyCartLinesChange({
           type: "removeCartLine",
           id: matched.id,
           quantity: matched.quantity,
         });
-        console.log("[Checkout Upsell] Removed line:", matched.id);
+        console.log("[Checkout Upsell] Removed line:", res);
       }
     } catch (err) {
       console.error("[Checkout Upsell] Error removing item:", err);
@@ -185,190 +216,215 @@ export default function (arg1, arg2) {
   function renderUI() {
     if (!hasDocument) return;
 
-    if (!container) {
-      container = createEl("s-stack", { gap: "tight" });
-      document.body.appendChild(container);
-    }
-
-    // Clear previous children
-    while (container.firstChild) {
-      container.removeChild(container.firstChild);
-    }
-
-    if (!currentCampaign || !currentCampaign.items || currentCampaign.items.length === 0) {
-      return;
-    }
-
-    // 1. Headline (Bold text above the upsell box, matching competitor)
-    if (currentCampaign.headline) {
-      const headlineText = createEl(
-        "s-text",
-        { type: "strong" },
-        currentCampaign.headline
-      );
-      container.appendChild(headlineText);
-    }
-
-    // 2. Render each upsell card
-    for (let i = 0; i < currentCampaign.items.length; i++) {
-      const item = currentCampaign.items[i];
-      const inCart = isVariantInCart(item.shopifyVariantId);
-      const isAdding = !!isAddingMap[item.id];
-      const isDescOpen = !!isDescOpenMap[item.id];
-
-      // Card Box (Outer container with border and padding)
-      const cardBox = createEl("s-box", {
-        padding: "base",
-        border: "base",
-        borderRadius: "base",
-        background: "base",
-      });
-
-      const cardStack = createEl("s-stack", { gap: "tight" });
-
-      // Top Row: Thumbnail + Title on Left, Prices on Right
-      const topRow = createEl("s-stack", {
-        direction: "inline",
-        gap: "base",
-        alignItems: "center",
-        justifyContent: "space-between",
-      });
-
-      // Left Info (Thumbnail + Title)
-      const leftStack = createEl("s-stack", {
-        direction: "inline",
-        gap: "tight",
-        alignItems: "center",
-      });
-
-      if (item.imageUrl) {
-        const thumb = createEl("s-image", {
-          src: item.imageUrl,
-          alt: item.title || "Upsell Item",
-          borderRadius: "base",
-          inlineSize: "44px",
-          blockSize: "44px",
-          objectFit: "cover",
-        });
-        leftStack.appendChild(thumb);
-      } else {
-        const placeholder = createEl("s-text", { type: "strong" }, "📦 ");
-        leftStack.appendChild(placeholder);
+    try {
+      if (!container) {
+        container = createEl("s-stack", { gap: "tight" });
+        document.body.appendChild(container);
       }
 
-      const titleText = createEl(
-        "s-text",
-        { type: "strong" },
-        item.title || "Product Offer"
-      );
-      leftStack.appendChild(titleText);
-      topRow.appendChild(leftStack);
+      // Clear previous children
+      while (container.firstChild) {
+        container.removeChild(container.firstChild);
+      }
 
-      // Right Info (Prices)
-      const priceStack = createEl("s-stack", {
-        direction: "inline",
-        gap: "tight",
-        alignItems: "center",
-      });
+      if (!currentCampaign || !currentCampaign.items || currentCampaign.items.length === 0) {
+        return;
+      }
 
-      if (item.strikethroughPrice) {
-        const strikePrice = item.strikethroughPrice.startsWith("$")
-          ? item.strikethroughPrice
-          : `$${item.strikethroughPrice}`;
-        const strikeText = createEl(
+      // 1. Headline (Bold text above the upsell box, matching competitor)
+      if (currentCampaign.headline) {
+        const headlineText = createEl(
           "s-text",
-          { type: "redundant", color: "subdued" },
-          strikePrice
+          { type: "strong" },
+          currentCampaign.headline
         );
-        priceStack.appendChild(strikeText);
+        container.appendChild(headlineText);
       }
 
-      const displayPrice = item.price
-        ? item.price.startsWith("$")
-          ? item.price
-          : `$${item.price}`
-        : "$4.99";
-      const sellText = createEl("s-text", { type: "strong" }, displayPrice);
-      priceStack.appendChild(sellText);
+      // 2. Render each upsell card
+      for (let i = 0; i < currentCampaign.items.length; i++) {
+        try {
+          const item = currentCampaign.items[i];
+          const inCart = isVariantInCart(item.shopifyVariantId);
+          const isAdding = !!isAddingMap[item.id];
+          const isDescOpen = !!isDescOpenMap[item.id];
 
-      topRow.appendChild(priceStack);
-      cardStack.appendChild(topRow);
-
-      // Collapsible Description Accordion
-      if (item.description) {
-        const descBtn = createEl(
-          "s-button",
-          { variant: "secondary", type: "button" },
-          isDescOpen ? "Product description ▲" : "Product description ▼"
-        );
-        descBtn.onclick = function () {
-          isDescOpenMap[item.id] = !isDescOpenMap[item.id];
-          renderUI();
-        };
-        cardStack.appendChild(descBtn);
-
-        if (isDescOpen) {
-          const descBox = createEl("s-box", {
-            padding: "tight",
-            background: "subdued",
-            borderRadius: "base",
+          // Card Box (Outer container with border and padding)
+          const cardBox = createEl("s-box", {
+            padding: "base",
+            border: "base",
+            "border-radius": "base",
+            background: "base",
           });
-          const descText = createEl(
+
+          const cardStack = createEl("s-stack", { gap: "tight" });
+
+          // Top Row: Thumbnail + Title on Left, Prices on Right
+          const topRow = createEl("s-stack", {
+            direction: "inline",
+            gap: "base",
+            "align-items": "center",
+            "justify-content": "space-between",
+          });
+
+          // Left Info (Thumbnail + Title)
+          const leftStack = createEl("s-stack", {
+            direction: "inline",
+            gap: "tight",
+            "align-items": "center",
+          });
+
+          if (item.imageUrl) {
+            const thumb = createEl("s-image", {
+              src: item.imageUrl,
+              source: item.imageUrl,
+              alt: item.title || "Upsell Item",
+              "border-radius": "base",
+              "inline-size": "44px",
+              "block-size": "44px",
+              "object-fit": "cover",
+              "aspect-ratio": "1/1",
+            });
+            leftStack.appendChild(thumb);
+          } else {
+            const placeholder = createEl("s-text", { type: "strong" }, "📦 ");
+            leftStack.appendChild(placeholder);
+          }
+
+          const titleText = createEl(
             "s-text",
-            { type: "small", color: "subdued" },
-            item.description
+            { type: "strong" },
+            item.title || "Product Offer"
           );
-          descBox.appendChild(descText);
-          cardStack.appendChild(descBox);
+          leftStack.appendChild(titleText);
+          topRow.appendChild(leftStack);
+
+          // Right Info (Prices)
+          const priceStack = createEl("s-stack", {
+            direction: "inline",
+            gap: "tight",
+            "align-items": "center",
+          });
+
+          if (item.strikethroughPrice) {
+            const strikeVal = String(item.strikethroughPrice).trim();
+            const strikePrice = strikeVal.startsWith("$") ? strikeVal : `$${strikeVal}`;
+            const strikeText = createEl(
+              "s-text",
+              { type: "redundant", color: "subdued" },
+              strikePrice
+            );
+            priceStack.appendChild(strikeText);
+          }
+
+          const rawPrice = item.price ? String(item.price).trim() : "$4.99";
+          const displayPrice = rawPrice.startsWith("$") ? rawPrice : `$${rawPrice}`;
+          const sellText = createEl("s-text", { type: "strong" }, displayPrice);
+          priceStack.appendChild(sellText);
+
+          topRow.appendChild(priceStack);
+          cardStack.appendChild(topRow);
+
+          // Collapsible Description Accordion
+          if (item.description) {
+            const descBtn = createEl(
+              "s-button",
+              { variant: "secondary", type: "button" },
+              isDescOpen ? "Product description ▲" : "Product description ▼"
+            );
+            const onToggleDesc = function () {
+              isDescOpenMap[item.id] = !isDescOpenMap[item.id];
+              renderUI();
+            };
+            descBtn.addEventListener("click", onToggleDesc);
+            descBtn.onclick = onToggleDesc;
+            cardStack.appendChild(descBtn);
+
+            if (isDescOpen) {
+              const descBox = createEl("s-box", {
+                padding: "tight",
+                background: "subdued",
+                "border-radius": "base",
+              });
+              const descText = createEl(
+                "s-text",
+                { type: "small", color: "subdued" },
+                item.description
+              );
+              descBox.appendChild(descText);
+              cardStack.appendChild(descBox);
+            }
+          }
+
+          // Action Button (Full-width "Add to cart" with customizable colors)
+          const btn = createEl("s-button", {
+            variant: inCart ? "secondary" : "primary",
+            type: "button",
+            "inline-size": "fill",
+          });
+
+          if (isAdding) {
+            btn.setAttribute("loading", "true");
+            try { btn.loading = true; } catch (e) {}
+            setElementText(btn, inCart ? "Removing..." : "Adding...");
+          } else if (inCart) {
+            setElementText(btn, "Added ✓ (Tap to remove)");
+          } else {
+            setElementText(btn, "Add to cart");
+          }
+
+          // Apply merchant-configured button colors
+          const btnBg = currentCampaign.buttonColor || "#008060";
+          const btnText = currentCampaign.buttonTextColor || "#ffffff";
+
+          if (!inCart && !isAdding) {
+            btn.setAttribute(
+              "style",
+              `background-color: ${btnBg} !important; color: ${btnText} !important; border-color: ${btnBg} !important;`
+            );
+            if (btn.style) {
+              try {
+                btn.style.backgroundColor = btnBg;
+                btn.style.color = btnText;
+                btn.style.borderColor = btnBg;
+              } catch (e) {}
+            }
+          }
+
+          const onBtnClick = function () {
+            if (isAddingMap[item.id]) return;
+            if (inCart) {
+              handleRemoveFromCart(item);
+            } else {
+              handleAddToCart(item);
+            }
+          };
+          btn.addEventListener("click", onBtnClick);
+          btn.onclick = onBtnClick;
+
+          cardStack.appendChild(btn);
+          cardBox.appendChild(cardStack);
+          container.appendChild(cardBox);
+        } catch (itemErr) {
+          console.error("[Checkout Upsell] Error rendering item:", i, itemErr);
         }
       }
-
-      // Action Button (Full-width "Add to cart" with customizable colors)
-      const btn = createEl("s-button", {
-        variant: inCart ? "secondary" : "primary",
-        type: "button",
-      });
-
-      if (isAdding) {
-        btn.setAttribute("loading", "true");
-        btn.textContent = inCart ? "Removing..." : "Adding...";
-      } else if (inCart) {
-        btn.textContent = "Added ✓ (Tap to remove)";
-      } else {
-        btn.textContent = "Add to cart";
-      }
-
-      // Apply merchant-configured button colors
-      const btnBg = currentCampaign.buttonColor || "#0066cc";
-      const btnText = currentCampaign.buttonTextColor || "#ffffff";
-
-      if (!inCart && !isAdding) {
-        btn.style.backgroundColor = btnBg;
-        btn.style.color = btnText;
-        btn.setAttribute(
-          "style",
-          `background-color: ${btnBg} !important; color: ${btnText} !important; border-color: ${btnBg} !important;`
-        );
-      }
-
-      btn.onclick = function () {
-        if (inCart) {
-          handleRemoveFromCart(item);
-        } else {
-          handleAddToCart(item);
-        }
-      };
-
-      cardStack.appendChild(btn);
-      cardBox.appendChild(cardStack);
-      container.appendChild(cardBox);
+    } catch (renderErr) {
+      console.error("[Checkout Upsell] Error during renderUI:", renderErr);
     }
   }
 
   // --- Fetch Campaign from Backend ---
-  async function loadUpsellCampaign() {
+  async function loadUpsellCampaign(force = false) {
     const source = getSourcePage();
     const cartProductIds = getCartProductIds();
+    const fetchKey = `${source}::${cartProductIds.join(",")}`;
+
+    if (!force && (isFetching || fetchKey === lastFetchedKey)) {
+      return;
+    }
+    isFetching = true;
+    lastFetchedKey = fetchKey;
 
     const fetchUrl = `${baseUrl}/api/upsell?shop=${encodeURIComponent(
       shopDomain
@@ -376,28 +432,37 @@ export default function (arg1, arg2) {
       cartProductIds.join(",")
     )}&is_editor=${isEditor ? "true" : "false"}&_t=${Date.now()}`;
 
+    let data = null;
     try {
       console.log("[Checkout Upsell] Fetching campaign from:", fetchUrl);
       const res = await fetch(fetchUrl);
 
       if (res.ok) {
-        const data = await res.json();
-        currentCampaign = data.campaign || null;
-        console.log(
-          "[Checkout Upsell] Loaded campaign:",
-          currentCampaign ? currentCampaign.name : "None matching"
-        );
-        renderUI();
+        data = await res.json();
       } else {
         console.warn("[Checkout Upsell] API returned status:", res.status);
       }
-    } catch (err) {
-      console.error("[Checkout Upsell] Network error loading campaign:", err);
+    } catch (netErr) {
+      console.error("[Checkout Upsell] Network error loading campaign:", netErr);
+    } finally {
+      isFetching = false;
     }
+
+    if (data && data.campaign) {
+      currentCampaign = data.campaign;
+      console.log(
+        "[Checkout Upsell] Loaded campaign:",
+        currentCampaign ? currentCampaign.name : "None matching"
+      );
+    } else {
+      currentCampaign = null;
+    }
+
+    renderUI();
   }
 
   // Initial load
-  loadUpsellCampaign();
+  loadUpsellCampaign(true);
 
   // Subscriptions to cart changes
   if (lines && typeof lines.subscribe === "function") {
@@ -408,7 +473,7 @@ export default function (arg1, arg2) {
 
   if (attributes && typeof attributes.subscribe === "function") {
     attributes.subscribe(function () {
-      loadUpsellCampaign();
+      loadUpsellCampaign(false);
     });
   }
 }
