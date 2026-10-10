@@ -224,49 +224,78 @@ export async function getMatchingUpsell(
       }
     } catch (e) {}
     clean = clean.replace(/^(?:https?:\/\/)?(?:www\.)?[^\/]+/, "");
+    clean = clean.replace(/^(?:www\.)?[a-z0-9-]+\.[a-z0-9.]+(?:\/|$)/, "/");
     clean = clean.split("?")[0].split("#")[0].replace(/\/+$/, "");
     if (clean && !clean.startsWith("/")) clean = "/" + clean;
-    return clean;
+    return clean || "/";
+  }
+
+  function isPathMatch(campSourceRaw: string, buyerSourceRaw: string): boolean {
+    if (!campSourceRaw || !buyerSourceRaw) return false;
+    const campTrim = campSourceRaw.trim().toLowerCase();
+    const buyerTrim = buyerSourceRaw.trim().toLowerCase();
+
+    // Universal wildcard match
+    if (campTrim === "*" || campTrim === "all") return true;
+
+    const normCamp = normalizePath(campTrim);
+    const normBuyer = normalizePath(buyerTrim);
+
+    // Exact normalized path match (e.g. "/pages/kids-deficiency-signs" === "/pages/kids-deficiency-signs")
+    if (normCamp && normBuyer && normCamp === normBuyer) {
+      return true;
+    }
+
+    // Wildcard prefix match (e.g. "/pages/promo*" matches "/pages/promo" and "/pages/promo-kids")
+    if (campTrim.endsWith("*")) {
+      const prefix = normalizePath(campTrim.replace(/\*+$/, ""));
+      if (prefix && prefix !== "/" && (normBuyer === prefix || normBuyer.startsWith(prefix + "/"))) {
+        return true;
+      }
+    }
+
+    // Slug match if merchant entered just the handle: e.g. "kids-deficiency-signs"
+    const campSlug = normCamp.split("/").filter(Boolean).pop() || "";
+    if (campSlug && campSlug.length > 3 && normBuyer.endsWith("/" + campSlug)) {
+      return true;
+    }
+
+    // Exact raw string match
+    if (campTrim === buyerTrim) {
+      return true;
+    }
+
+    return false;
   }
 
   const cleanSource = (sourceParam || "").trim().toLowerCase();
-  const normSource = normalizePath(cleanSource);
-  const sourceSlug = normSource.split("/").pop() || "";
 
-  // 1. Try exact, normalized, or partial match with the clean source parameter
-  if (cleanSource || normSource) {
+  // 1. Strict match against buyer tracked source page
+  if (cleanSource) {
     for (const campaign of store.upsellCampaigns) {
       const campSource = campaign.sourcePage.trim().toLowerCase();
-      // Ignore universal wildcard in specific matching
+      // Skip universal campaigns in specific match pass
       if (campSource === "*" || campSource === "all") continue;
 
-      const normCamp = normalizePath(campSource);
-      const campSlug = normCamp.split("/").pop() || "";
-
-      if (
-        campSource === cleanSource ||
-        (normSource && normCamp && normCamp === normSource) ||
-        (sourceSlug && campSlug && campSlug === sourceSlug) ||
-        (normSource && normCamp && (normCamp.includes(normSource) || normSource.includes(normCamp))) ||
-        cleanSource.includes(campSource) ||
-        campSource.includes(cleanSource)
-      ) {
+      if (isPathMatch(campSource, cleanSource)) {
         return campaign;
       }
     }
   }
 
-  // 2. Try matching against products in the cart (e.g. /products/handle or product id)
+  // 2. Try matching against products in the cart if campaign targets a specific product
   if (cartProductIds && cartProductIds.length > 0) {
     for (const campaign of store.upsellCampaigns) {
       const campSource = campaign.sourcePage.trim().toLowerCase();
       if (campSource === "*" || campSource === "all") continue;
 
+      const normCamp = normalizePath(campSource);
       for (const prodId of cartProductIds) {
         const cleanProdId = prodId.toLowerCase();
         if (
-          campSource.includes(cleanProdId) ||
-          cleanProdId.includes(campSource)
+          normCamp === `/${cleanProdId}` ||
+          normCamp === `/products/${cleanProdId}` ||
+          campSource === cleanProdId
         ) {
           return campaign;
         }
@@ -280,11 +309,5 @@ export async function getMatchingUpsell(
   );
   if (universal) return universal;
 
-  // 4. If cleanSource is empty and store has an active campaign, return it so checkout test works immediately
-  if (!cleanSource && store.upsellCampaigns.length === 1) {
-    return store.upsellCampaigns[0];
-  }
-
   return null;
 }
-

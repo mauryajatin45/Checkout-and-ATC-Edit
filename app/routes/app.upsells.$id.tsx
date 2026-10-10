@@ -197,6 +197,7 @@ export default function UpsellCampaignForm() {
   const [selectedProductToAdd, setSelectedProductToAdd] = useState<string>("");
   const [previewDescriptionOpen, setPreviewDescriptionOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [previewAddedMap, setPreviewAddedMap] = useState<Record<string, boolean>>({});
 
   // App Bridge Resource Picker
   const handlePickProduct = async () => {
@@ -735,7 +736,114 @@ export default function UpsellCampaignForm() {
                     </p>
 
                     {/* Competitor-Style Upsell Card */}
-                    {primaryItem ? (
+                    {items.length > 1 ? (
+                      /* Multi-item compact unified card */
+                      <div
+                        style={{
+                          backgroundColor: "#ffffff",
+                          border: "1px solid #d9d9d9",
+                          borderRadius: 10,
+                          padding: 12,
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                        }}
+                      >
+                        {items.map((item, idx) => {
+                          const itemId = item.shopifyVariantId || String(idx);
+                          const isAdded = !!previewAddedMap[itemId];
+                          return (
+                            <div key={idx}>
+                              {idx > 0 && (
+                                <div style={{ borderTop: "1px solid #eee", margin: "10px 0" }} />
+                              )}
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: item.imageUrl ? "44px 1fr auto" : "1fr auto",
+                                  gap: 10,
+                                  alignItems: "center",
+                                }}
+                              >
+                                {item.imageUrl && (
+                                  <img
+                                    src={item.imageUrl}
+                                    alt="Upsell"
+                                    style={{
+                                      width: 44,
+                                      height: 44,
+                                      objectFit: "cover",
+                                      borderRadius: 6,
+                                      border: "1px solid #eee",
+                                    }}
+                                  />
+                                )}
+                                <div style={{ minWidth: 0 }}>
+                                  <div
+                                    style={{
+                                      fontWeight: 600,
+                                      fontSize: 13,
+                                      color: "#111",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {item.customTitle || item.originalTitle || "Product Offer"}
+                                  </div>
+                                  <div style={{ marginTop: 2, fontSize: 13, whiteSpace: "nowrap" }}>
+                                    {item.strikethroughPrice && (
+                                      <span
+                                        style={{
+                                          textDecoration: "line-through",
+                                          color: "#888",
+                                          fontSize: 12,
+                                          marginRight: 6,
+                                        }}
+                                      >
+                                        {item.strikethroughPrice.startsWith("$")
+                                          ? item.strikethroughPrice
+                                          : `$${item.strikethroughPrice}`}
+                                      </span>
+                                    )}
+                                    <span style={{ fontWeight: 700, color: "#111" }}>
+                                      {item.price
+                                        ? item.price.startsWith("$")
+                                          ? item.price
+                                          : `$${item.price}`
+                                        : "$4.99"}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPreviewAddedMap((prev) => ({
+                                      ...prev,
+                                      [itemId]: !prev[itemId],
+                                    }))
+                                  }
+                                  style={{
+                                    padding: "6px 12px",
+                                    backgroundColor: isAdded ? "#f4f4f4" : buttonColor || "#0066cc",
+                                    color: isAdded ? "#333333" : buttonTextColor || "#ffffff",
+                                    border: isAdded ? "1px solid #ccc" : "none",
+                                    borderRadius: 6,
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    whiteSpace: "nowrap",
+                                    transition: "all 0.15s ease",
+                                  }}
+                                >
+                                  {isAdded ? "Remove" : "Add to cart"}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : primaryItem ? (
+                      /* Single-item card */
                       <div
                         style={{
                           backgroundColor: "#ffffff",
@@ -855,26 +963,37 @@ export default function UpsellCampaignForm() {
                           )}
                         </div>
 
-                        {/* Full-width Add to Cart Button */}
+                        {/* Full-width Add to Cart / Remove Button */}
                         <div style={{ marginTop: 12 }}>
-                          <button
-                            type="button"
-                            style={{
-                              width: "100%",
-                              padding: "10px 14px",
-                              backgroundColor: buttonColor || "#0066cc",
-                              color: buttonTextColor || "#ffffff",
-                              border: "none",
-                              borderRadius: 8,
-                              fontSize: 14,
-                              fontWeight: 600,
-                              cursor: "pointer",
-                              textAlign: "center",
-                              transition: "background-color 0.2s ease",
-                            }}
-                          >
-                            Add to cart
-                          </button>
+                          {(() => {
+                            const isSingleAdded = !!previewAddedMap["single"];
+                            return (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPreviewAddedMap((prev) => ({
+                                    ...prev,
+                                    single: !prev.single,
+                                  }))
+                                }
+                                style={{
+                                  width: "100%",
+                                  padding: "10px 14px",
+                                  backgroundColor: isSingleAdded ? "#f4f4f4" : buttonColor || "#0066cc",
+                                  color: isSingleAdded ? "#333333" : buttonTextColor || "#ffffff",
+                                  border: isSingleAdded ? "1px solid #ccc" : "none",
+                                  borderRadius: 8,
+                                  fontSize: 14,
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                  textAlign: "center",
+                                  transition: "background-color 0.2s ease",
+                                }}
+                              >
+                                {isSingleAdded ? "Remove" : "Add to cart"}
+                              </button>
+                            );
+                          })()}
                         </div>
                       </div>
                     ) : (
