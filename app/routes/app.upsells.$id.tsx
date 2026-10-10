@@ -100,7 +100,8 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   const name = (formData.get("name") as string) || "Upsell Campaign";
   const enabled = formData.get("enabled") === "true";
   const sourcePage = (formData.get("sourcePage") as string) || "*";
-  const headline = (formData.get("headline") as string) || "Lost, stolen or damaged? We reship it free, no questions.";
+  const rawHeadline = formData.get("headline");
+  const headline = typeof rawHeadline === "string" && rawHeadline.trim() ? rawHeadline.trim() : null;
   const description = formData.get("description") as string;
   const buttonColor = (formData.get("buttonColor") as string) || "#0066cc";
   const buttonTextColor = (formData.get("buttonTextColor") as string) || "#ffffff";
@@ -170,9 +171,7 @@ export default function UpsellCampaignForm() {
   const [name, setName] = useState(campaign?.name || "");
   const [enabled, setEnabled] = useState(campaign?.enabled ?? true);
   const [sourcePage, setSourcePage] = useState(campaign?.sourcePage || "");
-  const [headline, setHeadline] = useState(
-    campaign?.headline || "Lost, stolen or damaged? We reship it free, no questions."
-  );
+  const [headline, setHeadline] = useState(campaign?.headline || "");
   const [description, setDescription] = useState(campaign?.description || "");
   const [buttonColor, setButtonColor] = useState(campaign?.buttonColor || "#0066cc");
   const [buttonTextColor, setButtonTextColor] = useState(campaign?.buttonTextColor || "#ffffff");
@@ -401,12 +400,12 @@ export default function UpsellCampaignForm() {
                     }
                   />
                   <TextField
-                    label="Section Headline"
+                    label="Section Headline (Optional)"
                     value={headline}
                     onChange={setHeadline}
-                    placeholder="Lost, stolen or damaged? We reship it free, no questions."
+                    placeholder="Complete your order: add-ons at up to 75% off, today only."
                     autoComplete="off"
-                    helpText="Shown directly above the product upsell box at checkout."
+                    helpText="Shown directly above the product upsell box at checkout. Leave empty if you do not want a headline."
                   />
                 </BlockStack>
               </Card>
@@ -722,18 +721,20 @@ export default function UpsellCampaignForm() {
                       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
                     }}
                   >
-                    {/* Section Headline */}
-                    <p
-                      style={{
-                        margin: "0 0 12px 0",
-                        fontSize: "14px",
-                        fontWeight: 600,
-                        color: "#1a1a1a",
-                        lineHeight: 1.4,
-                      }}
-                    >
-                      {headline || "Lost, stolen or damaged? We reship it free, no questions."}
-                    </p>
+                    {/* Section Headline (Optional) */}
+                    {headline && headline.trim() ? (
+                      <p
+                        style={{
+                          margin: "0 0 16px 0",
+                          fontSize: "14px",
+                          fontWeight: 600,
+                          color: "#1a1a1a",
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {headline.trim()}
+                      </p>
+                    ) : null}
 
                     {/* Competitor-Style Upsell Card */}
                     {items.length > 1 ? (

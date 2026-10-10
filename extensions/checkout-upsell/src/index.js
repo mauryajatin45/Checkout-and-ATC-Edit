@@ -221,8 +221,11 @@ export default function (arg1, arg2) {
 
     try {
       if (!container) {
-        container = createEl("s-stack", { gap: "tight", "inline-size": "fill" });
+        container = createEl("s-stack", { gap: "base", "inline-size": "fill" });
         document.body.appendChild(container);
+      } else {
+        container.setAttribute("gap", "base");
+        try { container.gap = "base"; } catch (e) {}
       }
 
       // Clear previous children
@@ -234,14 +237,28 @@ export default function (arg1, arg2) {
         return;
       }
 
-      // 1. Headline (Bold text above the upsell box, matching competitor)
-      if (currentCampaign.headline) {
+      // 1. Headline (Bold text above the upsell box, optional with comfortable spacing)
+      const cleanHeadline = (currentCampaign.headline || "").trim();
+      if (cleanHeadline) {
+        const headlineBox = createEl("s-box", {
+          "padding-block-end": "tight",
+          "inline-size": "fill",
+        });
+        headlineBox.setAttribute("style", "padding-bottom: 8px !important; margin-bottom: 4px !important; display: block !important;");
+        if (headlineBox.style) {
+          try {
+            headlineBox.style.paddingBottom = "8px";
+            headlineBox.style.marginBottom = "4px";
+            headlineBox.style.display = "block";
+          } catch (e) {}
+        }
         const headlineText = createEl(
           "s-text",
           { type: "strong" },
-          currentCampaign.headline
+          cleanHeadline
         );
-        container.appendChild(headlineText);
+        headlineBox.appendChild(headlineText);
+        container.appendChild(headlineBox);
       }
 
       const isMulti = currentCampaign.items.length > 1;
