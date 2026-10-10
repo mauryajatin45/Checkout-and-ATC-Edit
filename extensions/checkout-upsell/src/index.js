@@ -1,5 +1,5 @@
 // Checkout Upsell UI Extension
-// Uses native Polaris Web Components (s-stack, s-box, s-text, s-image, s-button)
+// Uses native Polaris Web Components (s-grid, s-grid-item, s-stack, s-box, s-text, s-image, s-button, s-details, s-summary)
 // Matches competitor layout positioned directly above the Contact section
 
 export default function (arg1, arg2) {
@@ -47,7 +47,6 @@ export default function (arg1, arg2) {
 
   let currentCampaign = null;
   let isAddingMap = {};
-  let isDescOpenMap = {};
   let container = null;
   let lastFetchedKey = "";
   let isFetching = false;
@@ -62,7 +61,11 @@ export default function (arg1, arg2) {
         const kebabKey = k.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
         el.setAttribute(kebabKey, String(v));
 
-        // Also set as JS property if property is supported on element
+        // Convert kebab-case to camelCase for JS property
+        const camelKey = k.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+        try {
+          el[camelKey] = v;
+        } catch (e) {}
         try {
           el[k] = v;
         } catch (e) {}
@@ -218,7 +221,7 @@ export default function (arg1, arg2) {
 
     try {
       if (!container) {
-        container = createEl("s-stack", { gap: "tight" });
+        container = createEl("s-stack", { gap: "base", "inline-size": "fill" });
         document.body.appendChild(container);
       }
 
@@ -247,63 +250,73 @@ export default function (arg1, arg2) {
           const item = currentCampaign.items[i];
           const inCart = isVariantInCart(item.shopifyVariantId);
           const isAdding = !!isAddingMap[item.id];
-          const isDescOpen = !!isDescOpenMap[item.id];
 
-          // Card Box (Outer container with border and padding)
+          // Card Box (Outer container with border, rounded corners, padding, and full width)
           const cardBox = createEl("s-box", {
             padding: "base",
             border: "base",
             "border-radius": "base",
             background: "base",
+            "inline-size": "fill",
           });
 
-          const cardStack = createEl("s-stack", { gap: "tight" });
+          const cardStack = createEl("s-stack", {
+            gap: "base",
+            "inline-size": "fill",
+          });
 
-          // Top Row: Thumbnail + Title on Left, Prices on Right
-          const topRow = createEl("s-stack", {
-            direction: "inline",
+          // Top Row: 3-column Grid (Thumbnail | Title | Prices)
+          // Column 1 is 48px fixed thumbnail, Column 2 is 1fr title, Column 3 is auto prices
+          const topGrid = createEl("s-grid", {
+            "grid-template-columns": item.imageUrl ? "48px 1fr auto" : "1fr auto",
             gap: "base",
             "align-items": "center",
-            "justify-content": "space-between",
+            "inline-size": "fill",
           });
 
-          // Left Info (Thumbnail + Title)
-          const leftStack = createEl("s-stack", {
-            direction: "inline",
-            gap: "tight",
-            "align-items": "center",
-          });
-
+          // Column 1: Thumbnail (strictly constrained to 48x48 square)
           if (item.imageUrl) {
-            const thumb = createEl("s-image", {
+            const thumbItem = createEl("s-grid-item");
+            const thumbBox = createEl("s-box", {
+              "inline-size": "48px",
+              "max-inline-size": "48px",
+              "block-size": "48px",
+              "max-block-size": "48px",
+              overflow: "hidden",
+              "border-radius": "base",
+              border: "base",
+              background: "subdued",
+            });
+            const img = createEl("s-image", {
               src: item.imageUrl,
               source: item.imageUrl,
               alt: item.title || "Upsell Item",
-              "border-radius": "base",
-              "inline-size": "44px",
-              "block-size": "44px",
-              "object-fit": "cover",
+              "inline-size": "fill",
               "aspect-ratio": "1/1",
+              "object-fit": "cover",
             });
-            leftStack.appendChild(thumb);
-          } else {
-            const placeholder = createEl("s-text", { type: "strong" }, "📦 ");
-            leftStack.appendChild(placeholder);
+            thumbBox.appendChild(img);
+            thumbItem.appendChild(thumbBox);
+            topGrid.appendChild(thumbItem);
           }
 
+          // Column 2: Product Title (takes all remaining middle space, vertically centered)
+          const titleItem = createEl("s-grid-item");
           const titleText = createEl(
             "s-text",
             { type: "strong" },
             item.title || "Product Offer"
           );
-          leftStack.appendChild(titleText);
-          topRow.appendChild(leftStack);
+          titleItem.appendChild(titleText);
+          topGrid.appendChild(titleItem);
 
-          // Right Info (Prices)
+          // Column 3: Prices (firmly anchored to the right edge)
+          const priceItem = createEl("s-grid-item");
           const priceStack = createEl("s-stack", {
             direction: "inline",
             gap: "tight",
             "align-items": "center",
+            "justify-content": "end",
           });
 
           if (item.strikethroughPrice) {
@@ -312,7 +325,7 @@ export default function (arg1, arg2) {
             const strikeText = createEl(
               "s-text",
               { type: "redundant", color: "subdued" },
-              strikePrice
+              strikePrice + " "
             );
             priceStack.appendChild(strikeText);
           }
@@ -321,42 +334,32 @@ export default function (arg1, arg2) {
           const displayPrice = rawPrice.startsWith("$") ? rawPrice : `$${rawPrice}`;
           const sellText = createEl("s-text", { type: "strong" }, displayPrice);
           priceStack.appendChild(sellText);
+          priceItem.appendChild(priceStack);
+          topGrid.appendChild(priceItem);
 
-          topRow.appendChild(priceStack);
-          cardStack.appendChild(topRow);
+          cardStack.appendChild(topGrid);
 
-          // Collapsible Description Accordion
+          // Native Collapsible Description Accordion
           if (item.description) {
-            const descBtn = createEl(
-              "s-button",
-              { variant: "secondary", type: "button" },
-              isDescOpen ? "Product description ▲" : "Product description ▼"
+            const details = createEl("s-details");
+            const summary = createEl("s-summary", {}, "Product description");
+            const descBox = createEl("s-box", {
+              padding: "tight",
+              background: "subdued",
+              "border-radius": "base",
+            });
+            const descText = createEl(
+              "s-text",
+              { type: "small", color: "subdued" },
+              item.description
             );
-            const onToggleDesc = function () {
-              isDescOpenMap[item.id] = !isDescOpenMap[item.id];
-              renderUI();
-            };
-            descBtn.addEventListener("click", onToggleDesc);
-            descBtn.onclick = onToggleDesc;
-            cardStack.appendChild(descBtn);
-
-            if (isDescOpen) {
-              const descBox = createEl("s-box", {
-                padding: "tight",
-                background: "subdued",
-                "border-radius": "base",
-              });
-              const descText = createEl(
-                "s-text",
-                { type: "small", color: "subdued" },
-                item.description
-              );
-              descBox.appendChild(descText);
-              cardStack.appendChild(descBox);
-            }
+            descBox.appendChild(descText);
+            details.appendChild(summary);
+            details.appendChild(descBox);
+            cardStack.appendChild(details);
           }
 
-          // Action Button (Full-width "Add to cart" with customizable colors)
+          // Action Button: 100% Full-width CTA matching competitor
           const btn = createEl("s-button", {
             variant: inCart ? "secondary" : "primary",
             type: "button",
@@ -373,20 +376,33 @@ export default function (arg1, arg2) {
             setElementText(btn, "Add to cart");
           }
 
-          // Apply merchant-configured button colors
+          // Merchant-configured button colors
           const btnBg = currentCampaign.buttonColor || "#008060";
           const btnText = currentCampaign.buttonTextColor || "#ffffff";
 
           if (!inCart && !isAdding) {
             btn.setAttribute(
               "style",
-              `background-color: ${btnBg} !important; color: ${btnText} !important; border-color: ${btnBg} !important;`
+              `width: 100% !important; inline-size: 100% !important; background-color: ${btnBg} !important; color: ${btnText} !important; border-color: ${btnBg} !important;`
             );
             if (btn.style) {
               try {
+                btn.style.width = "100%";
+                btn.style.inlineSize = "100%";
                 btn.style.backgroundColor = btnBg;
                 btn.style.color = btnText;
                 btn.style.borderColor = btnBg;
+              } catch (e) {}
+            }
+          } else if (inCart) {
+            btn.setAttribute(
+              "style",
+              "width: 100% !important; inline-size: 100% !important;"
+            );
+            if (btn.style) {
+              try {
+                btn.style.width = "100%";
+                btn.style.inlineSize = "100%";
               } catch (e) {}
             }
           }
