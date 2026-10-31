@@ -1,6 +1,6 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "c8385a6362498efce9e18ecea306a307"
+client_id = "9185a68e090dcb306449791fc71a2325"
 name = "Checkout and ATC - Zoyava"
 application_url = "https://checkoutandatc.zoyava.terzettoo.com/"
 embedded = true
