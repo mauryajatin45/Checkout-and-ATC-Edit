@@ -1,6 +1,6 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "87e4d410852fd6074edc3e172a855ea6"
+client_id = "b98c89a441f7e523bfed0a71498fe2a1"
 name = "Checkout and ATC - parrox.us"
 application_url = "https://checkoutandatc.parrox.us.terzettoo.com/"
 embedded = true
