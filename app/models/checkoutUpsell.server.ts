@@ -185,10 +185,164 @@ export async function toggleUpsellCampaign(shopDomain: string, id: string, enabl
   });
 }
 
+// Product info cache (handle, title) to make checkout queries sub-millisecond
+const productInfoCache = new Map<string, { handle: string; title: string; timestamp: number }>();
+const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
+
+function slugMatchesTitle(slug: string, title: string): boolean {
+  if (!slug || !title) return false;
+  const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  const cleanTitle = title.toLowerCase();
+
+  // 1. Direct title slug substring match
+  const titleSlug = cleanTitle.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  if (titleSlug.includes(cleanSlug) || cleanSlug.includes(titleSlug)) {
+    return true;
+  }
+
+  // 2. Keyword matching: all significant words (len >= 3) from the slug are in the title
+  const slugWords = cleanSlug.split("-").filter((w) => w.length >= 3);
+  if (slugWords.length > 0) {
+    const allWordsPresent = slugWords.every((word) => cleanTitle.includes(word));
+    if (allWordsPresent) return true;
+  }
+
+  return false;
+}
+
+async function resolveProductHandles(
+  shopDomain: string,
+  accessToken: string,
+  productIds: string[]
+): Promise<Array<{ id: string; numericId: string; handle: string; title: string }>> {
+  const results: Array<{ id: string; numericId: string; handle: string; title: string }> = [];
+  const uncachedNumericIds: string[] = [];
+
+  for (const rawId of productIds) {
+    const numericId = String(rawId).replace(/^gid:\/\/shopify\/Product\//, "").trim();
+    if (!numericId) continue;
+
+    const cached = productInfoCache.get(numericId);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      results.push({
+        id: `gid://shopify/Product/${numericId}`,
+        numericId,
+        handle: cached.handle,
+        title: cached.title,
+      });
+    } else {
+      uncachedNumericIds.push(numericId);
+    }
+  }
+
+  // Fallback to Session token if store.accessToken is missing
+  let token = accessToken;
+  if (!token && shopDomain) {
+    try {
+      const sess = await prisma.session.findFirst({
+        where: { shop: shopDomain },
+        orderBy: { id: "desc" },
+      });
+      if (sess && sess.accessToken) {
+        token = sess.accessToken;
+      }
+    } catch (e) {}
+  }
+
+  if (uncachedNumericIds.length > 0 && token && shopDomain) {
+    try {
+      const gids = uncachedNumericIds.map((numId) => `gid://shopify/Product/${numId}`);
+      const res = await fetch(`https://${shopDomain}/admin/api/2025-01/graphql.json`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": token,
+        },
+        body: JSON.stringify({
+          query: `
+            query getProductHandles($ids: [ID!]!) {
+              nodes(ids: $ids) {
+                ... on Product {
+                  id
+                  handle
+                  title
+                }
+              }
+            }
+          `,
+          variables: { ids: gids },
+        }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const nodes = json?.data?.nodes || [];
+        for (const node of nodes) {
+          if (node && node.id) {
+            const numId = String(node.id).replace(/^gid:\/\/shopify\/Product\//, "").trim();
+            const handle = (node.handle || "").toLowerCase().trim();
+            const title = node.title || "";
+            productInfoCache.set(numId, { handle, title, timestamp: Date.now() });
+            results.push({
+              id: node.id,
+              numericId: numId,
+              handle,
+              title,
+            });
+          }
+        }
+      } else {
+        console.warn("[getMatchingUpsell] Shopify Admin API returned status:", res.status);
+      }
+    } catch (apiErr) {
+      console.error("[getMatchingUpsell] Error resolving product handles via Admin API:", apiErr);
+    }
+  }
+
+  // Fallback to local prisma.product records if Admin API failed or uncached
+  const resolvedNumericIds = new Set(results.map((r) => r.numericId));
+  const stillMissing = uncachedNumericIds.filter((id) => !resolvedNumericIds.has(id));
+
+  if (stillMissing.length > 0) {
+    try {
+      const dbProducts = await prisma.product.findMany({
+        where: {
+          OR: [
+            ...stillMissing.map((numId) => ({ id: `gid://shopify/Product/${numId}` })),
+            ...stillMissing.map((numId) => ({ shopifyProductId: `gid://shopify/Product/${numId}` })),
+            ...stillMissing.map((numId) => ({ shopifyProductId: numId })),
+          ],
+        },
+      });
+
+      for (const p of dbProducts) {
+        const numId = String(p.shopifyProductId || p.id).replace(/^gid:\/\/shopify\/Product\//, "").trim();
+        const derivedHandle = p.title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+        productInfoCache.set(numId, { handle: derivedHandle, title: p.title, timestamp: Date.now() });
+        results.push({
+          id: p.id,
+          numericId: numId,
+          handle: derivedHandle,
+          title: p.title,
+        });
+      }
+    } catch (dbErr) {
+      console.error("[getMatchingUpsell] DB fallback error:", dbErr);
+    }
+  }
+
+  return results;
+}
+
 export async function getMatchingUpsell(
   shopDomain: string,
   sourceParam?: string | null,
   cartProductIds?: string[] | null,
+  cartTitles?: string[] | null,
+  cartVariantIds?: string[] | null,
   isEditor?: boolean
 ) {
   const store = await prisma.store.findUnique({
@@ -228,6 +382,14 @@ export async function getMatchingUpsell(
     clean = clean.split("?")[0].split("#")[0].replace(/\/+$/, "");
     if (clean && !clean.startsWith("/")) clean = "/" + clean;
     return clean || "/";
+  }
+
+  function getCampaignPaths(raw: string): string[] {
+    if (!raw) return [];
+    return raw
+      .split(/[\n,;]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
   }
 
   function isPathMatch(campSourceRaw: string, buyerSourceRaw: string): boolean {
@@ -270,43 +432,108 @@ export async function getMatchingUpsell(
 
   const cleanSource = (sourceParam || "").trim().toLowerCase();
 
-  // 1. Strict match against buyer tracked source page
+  // 1. Strict match against buyer tracked source page (e.g. from cart attribute)
   if (cleanSource) {
     for (const campaign of store.upsellCampaigns) {
-      const campSource = campaign.sourcePage.trim().toLowerCase();
-      // Skip universal campaigns in specific match pass
-      if (campSource === "*" || campSource === "all") continue;
+      const paths = getCampaignPaths(campaign.sourcePage);
+      for (const campSource of paths) {
+        const campTrim = campSource.toLowerCase().trim();
+        if (campTrim === "*" || campTrim === "all") continue;
 
-      if (isPathMatch(campSource, cleanSource)) {
-        return campaign;
-      }
-    }
-  }
-
-  // 2. Try matching against products in the cart if campaign targets a specific product
-  if (cartProductIds && cartProductIds.length > 0) {
-    for (const campaign of store.upsellCampaigns) {
-      const campSource = campaign.sourcePage.trim().toLowerCase();
-      if (campSource === "*" || campSource === "all") continue;
-
-      const normCamp = normalizePath(campSource);
-      for (const prodId of cartProductIds) {
-        const cleanProdId = prodId.toLowerCase();
-        if (
-          normCamp === `/${cleanProdId}` ||
-          normCamp === `/products/${cleanProdId}` ||
-          campSource === cleanProdId
-        ) {
+        if (isPathMatch(campTrim, cleanSource)) {
           return campaign;
         }
       }
     }
   }
 
-  // 3. Fallback to universal wildcard campaign (* or all)
-  const universal = store.upsellCampaigns.find(
-    (c) => c.sourcePage.trim() === "*" || c.sourcePage.trim().toLowerCase() === "all"
-  );
+  // 2. Match against products in the cart
+  if (cartProductIds && cartProductIds.length > 0) {
+    const resolvedProducts = await resolveProductHandles(
+      shopDomain,
+      store.accessToken,
+      cartProductIds
+    );
+
+    for (const campaign of store.upsellCampaigns) {
+      const paths = getCampaignPaths(campaign.sourcePage);
+      let matched = false;
+
+      for (const campSource of paths) {
+        const campTrim = campSource.toLowerCase().trim();
+        if (campTrim === "*" || campTrim === "all") continue;
+
+        const normCamp = normalizePath(campTrim);
+        const campSlug = normCamp.split("/").filter(Boolean).pop() || "";
+
+        for (const prod of resolvedProducts) {
+          const handle = (prod.handle || "").toLowerCase();
+          const numId = prod.numericId.toLowerCase();
+
+          // Match by handle: e.g. campaign has /products/zeolite-kids-gummies and handle is zeolite-kids-gummies
+          if (
+            (handle && normCamp === `/products/${handle}`) ||
+            (handle && normCamp === `/${handle}`) ||
+            (handle && campSlug && campSlug === handle) ||
+            (handle && normCamp.endsWith(`/${handle}`))
+          ) {
+            matched = true;
+            break;
+          }
+
+          // Match by product ID: e.g. campaign has 9656359256305 or /products/9656359256305
+          if (
+            normCamp === `/products/${numId}` ||
+            normCamp === `/${numId}` ||
+            campSlug === numId ||
+            campTrim === numId
+          ) {
+            matched = true;
+            break;
+          }
+
+          // Match by title keywords: e.g. campaign slug "zeolite-kids-gummies" matches title "Zeolite Kids Detox Gummies"
+          if (prod.title && campSlug && slugMatchesTitle(campSlug, prod.title)) {
+            matched = true;
+            break;
+          }
+        }
+
+        if (matched) break;
+      }
+
+      if (matched) {
+        return campaign;
+      }
+    }
+  }
+
+  // 3. Match against cart titles if provided
+  if (cartTitles && cartTitles.length > 0) {
+    for (const campaign of store.upsellCampaigns) {
+      const paths = getCampaignPaths(campaign.sourcePage);
+      for (const campSource of paths) {
+        const campTrim = campSource.toLowerCase().trim();
+        if (campTrim === "*" || campTrim === "all") continue;
+
+        const normCamp = normalizePath(campTrim);
+        const campSlug = normCamp.split("/").filter(Boolean).pop() || "";
+        if (!campSlug || campSlug.length < 3) continue;
+
+        for (const title of cartTitles) {
+          if (slugMatchesTitle(campSlug, title)) {
+            return campaign;
+          }
+        }
+      }
+    }
+  }
+
+  // 4. Fallback to universal wildcard campaign (* or all)
+  const universal = store.upsellCampaigns.find((c) => {
+    const paths = getCampaignPaths(c.sourcePage);
+    return paths.some((p) => p === "*" || p.toLowerCase() === "all");
+  });
   if (universal) return universal;
 
   return null;

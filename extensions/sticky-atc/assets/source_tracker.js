@@ -12,6 +12,9 @@
       try {
         sessionStorage.setItem("shopify_upsell_source_page", path);
       } catch (e) {}
+      try {
+        document.cookie = "shopify_upsell_source_page=" + encodeURIComponent(path) + "; path=/; max-age=86400; SameSite=Lax";
+      } catch (e) {}
 
       if (window.fetch) {
         window.fetch("/cart/update.js", {

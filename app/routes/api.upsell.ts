@@ -11,6 +11,24 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     ? cartProductsParam.split(",").map((s) => s.trim()).filter(Boolean)
     : [];
 
+  const cartTitlesParam = url.searchParams.get("cart_titles");
+  let cartTitles: string[] = [];
+  if (cartTitlesParam) {
+    try {
+      cartTitles = decodeURIComponent(cartTitlesParam)
+        .split("|||")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    } catch (e) {
+      cartTitles = cartTitlesParam.split("|||").map((s) => s.trim()).filter(Boolean);
+    }
+  }
+
+  const cartVariantsParam = url.searchParams.get("cart_variants");
+  const cartVariantIds = cartVariantsParam
+    ? cartVariantsParam.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
@@ -34,7 +52,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     url.searchParams.get("preview") === "true";
 
   try {
-    const campaign = await getMatchingUpsell(shopDomain, sourceParam, cartProductIds, isEditor);
+    const campaign = await getMatchingUpsell(
+      shopDomain,
+      sourceParam,
+      cartProductIds,
+      cartTitles,
+      cartVariantIds,
+      isEditor
+    );
 
     return json(
       {
