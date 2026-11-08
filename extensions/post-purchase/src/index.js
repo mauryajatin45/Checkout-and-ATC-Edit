@@ -372,7 +372,7 @@ class OfferPage {
       const badge = [this.fill(step.badgeText, p), p.pct > 0 ? `${Math.round(p.pct)}% OFF` : ""].filter(Boolean).join(" · ");
       details.push(this.c(TextBlock, { size: "small", emphasized: true, appearance: "critical" }, [this.t(badge)]));
     }
-    details.push(this.c(Heading, { level: 1 }, [this.t(this.fill(step.headline || step.productTitle, p))]));
+    details.push(this.c(Heading, { level: 2 }, [this.t(this.fill(step.headline || step.productTitle, p))]));
     if (step.ratingText) details.push(this.c(TextBlock, { size: "small", emphasized: true, appearance: "warning" }, [this.t(this.fill(step.ratingText, p))]));
     if (step.subheadline) details.push(this.c(TextBlock, { subdued: true }, [this.t(this.fill(step.subheadline, p))]));
 
@@ -447,7 +447,7 @@ class OfferPage {
     }
 
     const media = step.imageUrl
-      ? this.c(Image, { source: step.imageUrl, description: step.productTitle, aspectRatio: 1, fit: "contain", bordered: false })
+      ? this.c(Image, { source: step.imageUrl, description: step.productTitle, aspectRatio: 1.35, fit: "contain", bordered: false })
       : this.c(View, {}, []);
 
     const layout = this.c(
