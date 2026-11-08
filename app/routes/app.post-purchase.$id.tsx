@@ -262,10 +262,12 @@ export default function PostPurchaseEditor() {
     if (sel) setTriggers(sel.map((p: any) => ({ id: p.id, title: p.title })));
   }
 
-  function save() {
+  function save(enabledOverride?: boolean) {
+    const live = typeof enabledOverride === "boolean" ? enabledOverride : enabled;
+    if (typeof enabledOverride === "boolean") setEnabled(enabledOverride);
     const payload: FunnelInput = {
       name,
-      enabled,
+      enabled: live,
       priority: Number(priority) || 0,
       triggerType,
       triggerProducts: triggers,
@@ -311,8 +313,8 @@ export default function PostPurchaseEditor() {
       backAction={{ content: "Post Purchase", onAction: () => navigate("/app/post-purchase") }}
       title={isNew ? "New post-purchase funnel" : name}
       titleMetadata={<Badge tone={enabled ? "success" : undefined}>{enabled ? "Live" : "Paused"}</Badge>}
-      primaryAction={{ content: "Save", onAction: save, loading: saving }}
-      secondaryActions={[{ content: enabled ? "Pause funnel" : "Set live on save", onAction: () => setEnabled(!enabled) }]}
+      primaryAction={{ content: "Save", onAction: () => save(), loading: saving }}
+      secondaryActions={[{ content: enabled ? "Save & pause" : "Save & go live", onAction: () => save(!enabled), disabled: saving }]}
     >
       <TitleBar title={isNew ? "New funnel" : name} />
       <BlockStack gap="400">
