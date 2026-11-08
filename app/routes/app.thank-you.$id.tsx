@@ -94,6 +94,7 @@ const emptyItem = (): ItemState => ({
   compareAtPrice: "",
   maxQuantity: 3,
   skipIfInOrder: false,
+  showShippingNote: false,
   variants: [],
 });
 
@@ -107,7 +108,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 function itemPricing(it: ItemState, pct: number) {
   const base = num(it.variantPrice);
   const unit = round2(base * (1 - pct / 100));
-  const compare = Math.max(num(it.compareAtPrice), base);
+  const compare = num(it.compareAtPrice) > 0 ? num(it.compareAtPrice) : base;
   const off = compare > 0 && unit < compare ? (1 - unit / compare) * 100 : 0;
   return { base, unit, compare, off };
 }
@@ -368,6 +369,7 @@ export default function ThankYouEditor() {
                           </InlineGrid>
                           <TextField label="Image URL" value={it.imageUrl || ""} onChange={(v) => updateItem(i, { imageUrl: v })} autoComplete="off" />
                           <Checkbox label="Hide this product if the order already contains it" checked={!!it.skipIfInOrder} onChange={(v) => updateItem(i, { skipIfInOrder: v })} />
+                          <Checkbox label="Show “+ shipping” next to the price" checked={!!it.showShippingNote} onChange={(v) => updateItem(i, { showShippingNote: v })} />
                         </>
                       )}
                     </BlockStack>
@@ -474,7 +476,7 @@ function Preview({
                 <div style={{ display: "flex", gap: 6, alignItems: "baseline", flexWrap: "wrap" }}>
                   {p.compare > p.unit && <span style={{ textDecoration: "line-through", color: "#8a8a8a", fontSize: 13 }}>{fmt(p.compare)}</span>}
                   <span style={{ fontWeight: 700, fontSize: 16 }}>{fmt(p.unit)}</span>
-                  <span style={{ fontSize: 12, color: "#8a8a8a" }}>+ shipping</span>
+                  {it.showShippingNote && <span style={{ fontSize: 12, color: "#8a8a8a" }}>+ shipping</span>}
                   {p.off >= 1 && <span style={{ fontSize: 12, fontWeight: 700, color: accent }}>{Math.round(p.off)}% OFF</span>}
                 </div>
                 {p.compare > p.unit && <div style={{ fontSize: 12, color: accent }}>You save {fmt(p.compare - p.unit)}</div>}

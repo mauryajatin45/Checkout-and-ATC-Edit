@@ -152,7 +152,8 @@ class ThankYouOffer {
         if (l && !l.available) return null;
         const base = l && Number.isFinite(l.price) ? l.price : Number(it.price) || 0;
         const unit = Math.round(base * (1 - pct / 100) * 100) / 100;
-        const compare = Math.max(Number(it.compareAtPrice) || 0, (l && l.compareAt) || 0, pct > 0 ? base : 0);
+        // The crossed-out price set in the app wins; otherwise the product's compare-at price (or the pre-discount price).
+        const compare = Number(it.compareAtPrice) > 0 ? Number(it.compareAtPrice) : Math.max((l && l.compareAt) || 0, pct > 0 ? base : 0);
         return {
           ...it,
           unit,
@@ -333,7 +334,7 @@ class ThankYouOffer {
     if (item.compare > item.unit + 0.009) prices.push(el("s-text", { type: "redundant", color: "subdued" }, this.money(item.compare * qty, item.currency)));
     prices.push(el("s-text", { type: "strong" }, this.money(item.unit * qty, item.currency)));
     // It's a new order: shipping is added at checkout. Say so next to the price.
-    prices.push(el("s-text", { type: "small", color: "subdued" }, this.t("plusShipping")));
+    if (item.showShippingNote) prices.push(el("s-text", { type: "small", color: "subdued" }, this.t("plusShipping")));
     if (off >= 1) prices.push(el("s-badge", { tone: "critical" }, `${off}% OFF`));
 
     const infoParts = [el("s-text", { type: "strong" }, item.productTitle)];

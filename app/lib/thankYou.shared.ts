@@ -16,6 +16,7 @@ export interface ThankYouItemInput {
   compareAtPrice?: string | null;
   maxQuantity?: number;
   skipIfInOrder?: boolean;
+  showShippingNote?: boolean;
 }
 
 export interface ThankYouCampaignInput {

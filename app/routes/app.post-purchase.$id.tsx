@@ -277,6 +277,7 @@ export default function PostPurchaseEditor() {
       steps: steps.map((s) => ({
         showWhen: s.showWhen,
         skipIfInOrder: s.skipIfInOrder,
+        showShippingNote: !!s.showShippingNote,
         productId: s.productId,
         variantId: s.variantId,
         productTitle: s.productTitle,
@@ -601,6 +602,12 @@ function StepEditor(props: {
         label="Skip this offer if the order already contains this product"
         checked={!!s.skipIfInOrder}
         onChange={(v) => onChange({ skipIfInOrder: v })}
+      />
+      <Checkbox
+        label="Show “+ $X shipping” next to the price when Shopify adds shipping"
+        helpText="The order summary on the page always lists shipping; this only adds the note beside the price."
+        checked={!!s.showShippingNote}
+        onChange={(v) => onChange({ showShippingNote: v })}
       />
 
       <Divider />

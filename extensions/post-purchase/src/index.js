@@ -382,7 +382,7 @@ class OfferPage {
       priceParts.push(this.c(Text, { role: "deletion", size: "large", subdued: true }, [this.t(this.money(p.compareTotal, p.cur))]));
     }
     priceParts.push(this.c(Text, { size: "xlarge", emphasized: true }, [this.t(this.calc ? this.money(p.lineTotal, p.cur) : "…")]));
-    if (this.calc && p.shipping > 0.009) {
+    if (step.showShippingNote && this.calc && p.shipping > 0.009) {
       // Shipping is charged on top of the item price: say so right next to the price.
       priceParts.push(this.c(Text, { size: "medium", subdued: true }, [this.t(`+ ${this.money(p.shipping, p.cur)} shipping`)]));
     }

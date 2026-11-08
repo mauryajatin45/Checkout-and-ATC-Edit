@@ -13,6 +13,7 @@ export interface TriggerProduct {
 export interface OfferInput {
   showWhen?: ShowWhen;
   skipIfInOrder?: boolean;
+  showShippingNote?: boolean;
   productId: string;
   variantId: string;
   productTitle: string;

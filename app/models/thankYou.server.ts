@@ -24,6 +24,7 @@ function itemData(it: ThankYouItemInput, position: number) {
     compareAtPrice: clean(it.compareAtPrice, 40),
     maxQuantity: clampInt(it.maxQuantity, 1, 10, 3),
     skipIfInOrder: it.skipIfInOrder ?? false,
+    showShippingNote: it.showShippingNote ?? false,
   };
 }
 
@@ -220,6 +221,7 @@ export function publicCampaign(c: NonNullable<Awaited<ReturnType<typeof matchCam
       compareAtPrice: it.compareAtPrice,
       maxQuantity: it.maxQuantity,
       skipIfInOrder: it.skipIfInOrder,
+      showShippingNote: it.showShippingNote,
     })),
   };
 }

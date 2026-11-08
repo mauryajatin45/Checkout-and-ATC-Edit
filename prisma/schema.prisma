@@ -177,6 +177,8 @@ model PostPurchaseOffer {
   // "always" | "accepted" | "declined": shown after the previous step was accepted / declined
   showWhen        String              @default("always")
   skipIfInOrder   Boolean             @default(true)
+  // Show "+ $X shipping" next to the price when Shopify adds shipping
+  showShippingNote Boolean            @default(false)
   productId       String
   variantId       String
   productTitle    String
@@ -267,6 +269,8 @@ model ThankYouItem {
   compareAtPrice String?
   maxQuantity    Int              @default(3)
   skipIfInOrder  Boolean          @default(false)
+  // Show "+ shipping" next to the price
+  showShippingNote Boolean         @default(false)
   events         ThankYouEvent[]
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
