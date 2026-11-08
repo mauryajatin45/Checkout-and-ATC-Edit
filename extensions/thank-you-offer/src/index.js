@@ -185,6 +185,12 @@ class ThankYouOffer {
   async startTimer() {
     const minutes = Number(this.campaign.timerMinutes) || 0;
     if (!minutes) return;
+    if (this.isEditor) {
+      // The checkout editor reuses one sample order: always preview a fresh countdown there.
+      this.deadline = Date.now() + minutes * 60000;
+      this.timer = setInterval(() => this.tick(), 1000);
+      return;
+    }
     const key = `ty_deadline_${this.campaign.id}_${this.orderRef()}`;
     let saved = 0;
     try {
