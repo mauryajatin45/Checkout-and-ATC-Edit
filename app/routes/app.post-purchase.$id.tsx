@@ -647,7 +647,8 @@ function StepEditor(props: {
 /** Approximates what Shopify draws for the post-purchase extension (layout, hierarchy, copy, prices). */
 function Preview({ step: s, timerMinutes, qty }: { step: StepState; timerMinutes: number; qty: number }) {
   const p = stepPricing(s, qty);
-  const percent = num(s.discountPercent);
+  // Saving shown to the customer: against the crossed-out price, so a pre-discounted variant still shows its % off.
+  const percent = p.compare > 0 && p.unit < p.compare ? (1 - p.unit / p.compare) * 100 : 0;
   const tokens = { product: s.productTitle || "this product", percent, price: p.total, save: p.save };
   const bullets = s.bulletsText.split("\n").map((b) => b.trim()).filter(Boolean).slice(0, 6);
   const accent = "#1f7a4d";

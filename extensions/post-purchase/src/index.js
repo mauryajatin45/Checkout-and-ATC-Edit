@@ -289,9 +289,11 @@ class OfferPage {
     const taxes = (calc ? calc.addedTaxLines : []).reduce((a, t) => a + Number(t.priceSet.presentmentMoney.amount), 0);
     const total = calc ? Number(calc.totalOutstandingSet.presentmentMoney.amount) : 0;
     const compareTotal = compareUnit * this.qty;
+    // % shown to the customer = saving against the crossed-out price (covers pre-discounted variants too).
+    const off = compareTotal > 0 && lineTotal > 0 && lineTotal < compareTotal ? (1 - lineTotal / compareTotal) * 100 : pct;
     return {
       cur,
-      pct,
+      pct: off,
       lineTotal,
       compareTotal,
       save: Math.max(0, compareTotal - lineTotal),
