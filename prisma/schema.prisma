@@ -28,71 +28,72 @@ model Session {
 }
 
 model Store {
-  id              String   @id @default(cuid())
-  shopDomain      String   @unique
-  accessToken     String
-  createdAt       DateTime @default(now())
-  products        Product[]
-  checkoutTimer   CheckoutTimerSettings?
-  upsellCampaigns CheckoutUpsellCampaign[]
+  id                  String                   @id @default(cuid())
+  shopDomain          String                   @unique
+  accessToken         String
+  createdAt           DateTime                 @default(now())
+  products            Product[]
+  checkoutTimer       CheckoutTimerSettings?
+  upsellCampaigns     CheckoutUpsellCampaign[]
+  postPurchaseFunnels PostPurchaseFunnel[]
 }
 
 model CheckoutTimerSettings {
-  id              String   @id @default(cuid())
-  storeId         String   @unique
-  store           Store    @relation(fields: [storeId], references: [id])
-  enabled         Boolean  @default(true)
-  text            String   @default("Due to high demand your order is reserved for:")
-  timerMinutes    Int      @default(10)
-  backgroundColor String   @default("#e8f8e8")
-  textColor       String   @default("#000000")
-  iconEnabled     Boolean  @default(true)
-  fontSize        String   @default("base")
+  id              String  @id @default(cuid())
+  storeId         String  @unique
+  store           Store   @relation(fields: [storeId], references: [id])
+  enabled         Boolean @default(true)
+  text            String  @default("Due to high demand your order is reserved for:")
+  timerMinutes    Int     @default(10)
+  backgroundColor String  @default("#e8f8e8")
+  textColor       String  @default("#000000")
+  iconEnabled     Boolean @default(true)
+  fontSize        String  @default("base")
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Product {
-  id               String   @id @default(cuid())
+  id               String           @id @default(cuid())
   storeId          String
   shopifyProductId String
   title            String
   stickyAtcConfig  StickyAtcConfig?
   checkoutConfig   CheckoutConfig?
-  store            Store    @relation(fields: [storeId], references: [id])
+  store            Store            @relation(fields: [storeId], references: [id])
   customReviews    CustomReview[]
 }
 
 model StickyAtcConfig {
-  id               String   @id @default(cuid())
-  productId        String   @unique
-  enabled          Boolean  @default(false)
-  headline         String?
-  subheadline      String?
-  timerEnabled     Boolean  @default(false)
-  timerMode        String   @default("fixed_end")
-  timerEndAt       DateTime?
-  autoResetTimer   Boolean  @default(true)
-  backgroundColor  String?  @default("#B978D1")
-  textColor        String   @default("#FFFFFF")
-  iconColor        String   @default("#FFFFFF")
-  timerBoxColor    String   @default("#FFFFFF")
-  timerBoxTextColor String  @default("#B978D1")
-  buttonText       String?  @default("Add to Cart")
-  product          Product  @relation(fields: [productId], references: [id])
+  id                String    @id @default(cuid())
+  productId         String    @unique
+  enabled           Boolean   @default(false)
+  headline          String?
+  subheadline       String?
+  timerEnabled      Boolean   @default(false)
+  timerMode         String    @default("fixed_end")
+  timerEndAt        DateTime?
+  autoResetTimer    Boolean   @default(true)
+  backgroundColor   String?   @default("#B978D1")
+  textColor         String    @default("#FFFFFF")
+  iconColor         String    @default("#FFFFFF")
+  timerBoxColor     String    @default("#FFFFFF")
+  timerBoxTextColor String    @default("#B978D1")
+  buttonText        String?   @default("Add to Cart")
+  product           Product   @relation(fields: [productId], references: [id])
 }
 
 model CheckoutConfig {
-  id               String   @id @default(cuid())
-  productId        String   @unique
-  enabled          Boolean  @default(false)
-  showReviews      Boolean  @default(true)
-  showRating       Boolean  @default(true)
-  reviewsSource    String   @default("judgeme")
-  checkoutImageUrl String? 
+  id               String  @id @default(cuid())
+  productId        String  @unique
+  enabled          Boolean @default(false)
+  showReviews      Boolean @default(true)
+  showRating       Boolean @default(true)
+  reviewsSource    String  @default("judgeme")
+  checkoutImageUrl String?
 
-  product          Product  @relation(fields: [productId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
 }
 
 model CustomReview {
@@ -109,26 +110,26 @@ model CustomReview {
 }
 
 model CheckoutUpsellCampaign {
-  id          String   @id @default(cuid())
-  storeId     String
-  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  name        String
-  enabled     Boolean  @default(true)
-  sourcePage  String
-  headline    String?  @default("Special Offer Just for You")
-  description String?
-  buttonColor String?  @default("#0066cc")
-  buttonTextColor String? @default("#ffffff")
-  priority    Int      @default(0)
-  items       CheckoutUpsellItem[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String               @id @default(cuid())
+  storeId         String
+  store           Store                @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name            String
+  enabled         Boolean              @default(true)
+  sourcePage      String
+  headline        String?              @default("Special Offer Just for You")
+  description     String?
+  buttonColor     String?              @default("#0066cc")
+  buttonTextColor String?              @default("#ffffff")
+  priority        Int                  @default(0)
+  items           CheckoutUpsellItem[]
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
   @@index([storeId])
 }
 
 model CheckoutUpsellItem {
-  id                 String   @id @default(cuid())
+  id                 String                 @id @default(cuid())
   campaignId         String
   campaign           CheckoutUpsellCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   shopifyProductId   String
@@ -138,9 +139,85 @@ model CheckoutUpsellItem {
   strikethroughPrice String?
   price              String?
   imageUrl           String?
-  position           Int      @default(0)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  position           Int                    @default(0)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
 
   @@index([campaignId])
+}
+
+// ─── Post-purchase (one-click upsell page between payment and the thank-you page) ───
+
+model PostPurchaseFunnel {
+  id              String              @id @default(cuid())
+  storeId         String
+  store           Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name            String
+  enabled         Boolean             @default(false)
+  priority        Int                 @default(0)
+  // "all" = every eligible order, "products" = order contains one of triggerProductIds
+  triggerType     String              @default("products")
+  // JSON array of { id: "gid://shopify/Product/..", title }
+  triggerProducts String?             @db.Text
+  timerMinutes    Int                 @default(10)
+  steps           PostPurchaseOffer[]
+  events          PostPurchaseEvent[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([storeId])
+}
+
+model PostPurchaseOffer {
+  id              String              @id @default(cuid())
+  funnelId        String
+  funnel          PostPurchaseFunnel  @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+  position        Int                 @default(0)
+  // "always" | "accepted" | "declined": shown after the previous step was accepted / declined
+  showWhen        String              @default("always")
+  skipIfInOrder   Boolean             @default(true)
+  productId       String
+  variantId       String
+  productTitle    String
+  variantTitle    String?
+  imageUrl        String?             @db.Text
+  variantPrice    String?
+  compareAtPrice  String?
+  discountPercent Float               @default(0)
+  discountTitle   String              @default("Exclusive offer")
+  maxQuantity     Int                 @default(3)
+  badgeText       String?
+  headline        String?
+  subheadline     String?             @db.Text
+  bullets         String?             @db.Text
+  ratingText      String?
+  guaranteeText   String?             @db.Text
+  acceptLabel     String?
+  declineLabel    String?
+  events          PostPurchaseEvent[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([funnelId])
+}
+
+model PostPurchaseEvent {
+  id          String             @id @default(cuid())
+  storeId     String
+  funnelId    String
+  funnel      PostPurchaseFunnel @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+  offerId     String?
+  offer       PostPurchaseOffer? @relation(fields: [offerId], references: [id], onDelete: SetNull)
+  // "view" | "accept" | "decline" | "error"
+  type        String
+  referenceId String?
+  quantity    Int?
+  revenue     Float?
+  currency    String?
+  detail      String?            @db.Text
+  createdAt   DateTime           @default(now())
+
+  @@index([storeId, createdAt])
+  @@index([funnelId, type])
+  @@index([offerId])
 }
