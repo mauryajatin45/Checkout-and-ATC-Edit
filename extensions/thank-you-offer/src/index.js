@@ -241,6 +241,7 @@ class ThankYouOffer {
       reviews: es ? `${n} reseñas` : `${n} reviews`,
       ended: es ? "Esta oferta ha terminado." : "This offer has ended.",
       buy: es ? "Comprar ahora · {price}" : "Buy now · {price}",
+      plusShipping: es ? "+ envío" : "+ shipping",
     };
     return S[key];
   }
@@ -325,6 +326,8 @@ class ThankYouOffer {
     const prices = [];
     if (item.compare > item.unit + 0.009) prices.push(el("s-text", { type: "redundant", color: "subdued" }, this.money(item.compare * qty, item.currency)));
     prices.push(el("s-text", { type: "strong" }, this.money(item.unit * qty, item.currency)));
+    // It's a new order: shipping is added at checkout. Say so next to the price.
+    prices.push(el("s-text", { type: "small", color: "subdued" }, this.t("plusShipping")));
     if (off >= 1) prices.push(el("s-badge", { tone: "critical" }, `${off}% OFF`));
 
     const infoParts = [el("s-text", { type: "strong" }, item.productTitle)];

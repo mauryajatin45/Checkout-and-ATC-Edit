@@ -474,6 +474,7 @@ function Preview({
                 <div style={{ display: "flex", gap: 6, alignItems: "baseline", flexWrap: "wrap" }}>
                   {p.compare > p.unit && <span style={{ textDecoration: "line-through", color: "#8a8a8a", fontSize: 13 }}>{fmt(p.compare)}</span>}
                   <span style={{ fontWeight: 700, fontSize: 16 }}>{fmt(p.unit)}</span>
+                  <span style={{ fontSize: 12, color: "#8a8a8a" }}>+ shipping</span>
                   {p.off >= 1 && <span style={{ fontSize: 12, fontWeight: 700, color: accent }}>{Math.round(p.off)}% OFF</span>}
                 </div>
                 {p.compare > p.unit && <div style={{ fontSize: 12, color: accent }}>You save {fmt(p.compare - p.unit)}</div>}
