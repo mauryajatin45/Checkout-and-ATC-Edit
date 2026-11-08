@@ -102,7 +102,7 @@ const DEFAULT_COPY = {
     "One click: no need to re-enter your card",
     "Covered by our 60-day money-back guarantee",
   ].join("\n"),
-  ratingText: "★★★★★ Loved by 1,000+ families",
+  ratingText: "",
   guaranteeText: "One-click checkout. You're charged the total shown, on the payment method used for this order.",
   acceptLabel: "Yes! Add to my order · {price}",
   declineLabel: "No thanks, I'll pass on this deal",
