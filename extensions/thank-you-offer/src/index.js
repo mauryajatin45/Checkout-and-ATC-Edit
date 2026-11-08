@@ -101,7 +101,8 @@ class ThankYouOffer {
     })();
     const q = `query TyVariants($ids: [ID!]!${country ? ", $country: CountryCode" : ""}) ${country ? "@inContext(country: $country)" : ""} {
       nodes(ids: $ids) {
-        ... on ProductVariant { id availableForSale price { amount currencyCode } compareAtPrice { amount } image { url } product { featuredImage { url } } }
+        ... on ProductVariant { id availableForSale price { amount currencyCode } compareAtPrice { amount } image { url }
+          product { featuredImage { url } rating: metafield(namespace: "reviews", key: "rating") { value } ratingCount: metafield(namespace: "reviews", key: "rating_count") { value } } }
       }
     }`;
     try {
@@ -117,6 +118,8 @@ class ThankYouOffer {
           currency: (n.price && n.price.currencyCode) || "USD",
           compareAt: Number(n.compareAtPrice && n.compareAtPrice.amount) || 0,
           image: (n.image && n.image.url) || (n.product && n.product.featuredImage && n.product.featuredImage.url) || "",
+          rating: parseRating(n.product && n.product.rating && n.product.rating.value),
+          ratingCount: Number(n.product && n.product.ratingCount && n.product.ratingCount.value) || 0,
         };
       }
       return out;
@@ -150,9 +153,19 @@ class ThankYouOffer {
         const base = l && Number.isFinite(l.price) ? l.price : Number(it.price) || 0;
         const unit = Math.round(base * (1 - pct / 100) * 100) / 100;
         const compare = Math.max(Number(it.compareAtPrice) || 0, (l && l.compareAt) || 0, pct > 0 ? base : 0);
-        return { ...it, unit, compare, currency: (l && l.currency) || "USD", image: it.imageUrl || (l && l.image) || "" };
+        return {
+          ...it,
+          unit,
+          compare,
+          currency: (l && l.currency) || "USD",
+          image: it.imageUrl || (l && l.image) || "",
+          rating: (l && l.rating) || 0,
+          ratingCount: (l && l.ratingCount) || 0,
+        };
       })
-      .filter(Boolean);
+      .filter(Boolean)
+      // One focused offer converts better than a list: products are a fallback order, show the first eligible one.
+      .slice(0, 1);
     if (!this.items.length) {
       if (this.isEditor) this.drawPlaceholder("The offer's products are sold out or already in this order.");
       return;
@@ -160,6 +173,11 @@ class ThankYouOffer {
     for (const it of this.items) this.qty[it.id] = 1;
 
     await this.startTimer();
+    if (this.deadline && Date.now() >= this.deadline) {
+      // The offer really ends when the timer says so (no resetting clocks).
+      if (this.isEditor) this.drawPlaceholder(this.t("ended"));
+      return;
+    }
     this.draw();
     this.track("view");
   }
@@ -193,10 +211,39 @@ class ThankYouOffer {
     if (Date.now() >= this.deadline && this.timer) {
       clearInterval(this.timer);
       this.timer = null;
+      // Time is up: remove the offer so the countdown means what it says.
+      if (this.root && !this.isEditor) {
+        try {
+          document.body.removeChild(this.root);
+        } catch (e) {}
+        this.root = null;
+      }
     }
   }
 
   // ─── helpers ──────────────────────────────────────────────────────────────
+
+  lang() {
+    try {
+      const l = val(this.api.localization && this.api.localization.language);
+      return String((l && l.isoCode) || "en").toLowerCase().slice(0, 2);
+    } catch (e) {
+      return "en";
+    }
+  }
+
+  t(key, n) {
+    const es = this.lang() === "es";
+    const S = {
+      endsIn: es ? "Termina en" : "Ends in",
+      qty: es ? "Cant." : "Qty",
+      save: es ? "Ahorras" : "You save",
+      reviews: es ? `${n} reseñas` : `${n} reviews`,
+      ended: es ? "Esta oferta ha terminado." : "This offer has ended.",
+      buy: es ? "Comprar ahora · {price}" : "Buy now · {price}",
+    };
+    return S[key];
+  }
 
   money(amount, currency) {
     try {
@@ -214,7 +261,10 @@ class ThankYouOffer {
   fill(text, item) {
     const first = item || this.items[0];
     const off = first && first.compare > first.unit ? (1 - first.unit / first.compare) * 100 : Number(this.campaign.discountPercent) || 0;
-    return String(text || "")
+    let out = String(text || "");
+    // No real saving on this product: drop "at {percent}% off"-style phrases instead of showing "0% off".
+    if (Math.round(off) < 1) out = out.replace(/\s*(?:[—–-]\s*)?(?:at|for|with)?\s*\{percent\}%\s*(?:off)?/gi, "");
+    return out
       .replace(/\{product\}/g, (first && first.productTitle) || "")
       .replace(/\{percent\}/g, String(Math.round(off)))
       .replace(/\{price\}/g, first ? this.money(first.unit * (this.qty[first.id] || 1), first.currency) : "");
@@ -277,10 +327,14 @@ class ThankYouOffer {
     prices.push(el("s-text", { type: "strong" }, this.money(item.unit * qty, item.currency)));
     if (off >= 1) prices.push(el("s-badge", { tone: "critical" }, `${off}% OFF`));
 
-    const info = el("s-stack", { gap: "small-200" }, [
-      el("s-text", { type: "strong" }, item.productTitle),
-      el("s-stack", { direction: "inline", gap: "small-200", alignItems: "center" }, prices),
-    ]);
+    const infoParts = [el("s-text", { type: "strong" }, item.productTitle)];
+    if (item.rating >= 4 && item.ratingCount >= 10) {
+      infoParts.push(el("s-text", { type: "small", color: "subdued" }, `${stars(item.rating)} ${item.rating.toFixed(1)} · ${this.t("reviews", item.ratingCount)}`));
+    }
+    infoParts.push(el("s-stack", { direction: "inline", gap: "small-200", alignItems: "center" }, prices));
+    const saved = (item.compare - item.unit) * qty;
+    if (saved > 0.009) infoParts.push(el("s-text", { type: "small", tone: "success" }, `${this.t("save")} ${this.money(saved, item.currency)}`));
+    const info = el("s-stack", { gap: "small-200" }, infoParts);
     const top = item.image
       ? el("s-grid", { gridTemplateColumns: "80px 1fr", gap: "base", alignItems: "center" }, [
           el("s-image", { src: item.image, alt: item.productTitle, aspectRatio: "1", objectFit: "contain", borderRadius: "base", inlineSize: "fill" }),
@@ -288,14 +342,14 @@ class ThankYouOffer {
         ])
       : info;
 
-    const button = el("s-button", { variant: "primary", href: this.buyUrl(item), inlineSize: "fill" }, this.fill(this.campaign.buttonLabel || "Buy now · {price}", item));
+    const button = el("s-button", { variant: "primary", href: this.buyUrl(item), inlineSize: "fill" }, this.fill(this.campaign.buttonLabel || this.t("buy"), item));
     on(button, "click", () => this.track("click", item));
 
     let actions = button;
     const maxQ = Math.max(1, Number(item.maxQuantity) || 1);
     if (maxQ > 1) {
       const opts = Array.from({ length: maxQ }, (_, i) => el("s-option", { value: String(i + 1), selected: i + 1 === qty }, String(i + 1)));
-      const select = el("s-select", { label: "Qty", value: String(qty) }, opts);
+      const select = el("s-select", { label: this.t("qty"), value: String(qty) }, opts);
       on(select, "change", (e) => {
         const v = Number((e && e.currentTarget && e.currentTarget.value) || select.value) || 1;
         this.qty[item.id] = Math.min(maxQ, Math.max(1, v));
@@ -313,7 +367,7 @@ class ThankYouOffer {
     if (c.badgeText) badgeAndTimer.push(el("s-badge", { tone: "critical" }, this.fill(c.badgeText)));
     if (this.deadline && Date.now() < this.deadline) {
       this.timerNode = el("s-text", { type: "strong", tone: "critical" }, this.timeLeft());
-      badgeAndTimer.push(el("s-stack", { direction: "inline", gap: "small-300", alignItems: "center" }, [el("s-text", { color: "subdued" }, "Ends in"), this.timerNode]));
+      badgeAndTimer.push(el("s-stack", { direction: "inline", gap: "small-300", alignItems: "center" }, [el("s-text", { color: "subdued" }, this.t("endsIn")), this.timerNode]));
     } else {
       this.timerNode = null;
     }
@@ -356,6 +410,21 @@ function el(tag, props = {}, children) {
     }
   }
   return node;
+}
+
+function parseRating(raw) {
+  if (!raw) return 0;
+  try {
+    const v = JSON.parse(raw);
+    return Number(v && v.value) || 0;
+  } catch (e) {
+    return Number(raw) || 0;
+  }
+}
+
+function stars(r) {
+  const full = Math.round(r);
+  return "★★★★★".slice(0, full) + "☆☆☆☆☆".slice(0, 5 - full);
 }
 
 function setText(node, text) {

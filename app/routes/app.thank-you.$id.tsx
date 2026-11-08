@@ -306,7 +306,12 @@ export default function ThankYouEditor() {
             <Card>
               <BlockStack gap="400">
                 <InlineStack align="space-between" blockAlign="center">
-                  <Text as="h2" variant="headingSm">Products (up to {MAX_TY_ITEMS})</Text>
+                  <BlockStack gap="050">
+                    <Text as="h2" variant="headingSm">Products (up to {MAX_TY_ITEMS}, in fallback order)</Text>
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      Customers see one product: the first that's in stock and, if you ticked it, not already in their order.
+                    </Text>
+                  </BlockStack>
                   {items.length < MAX_TY_ITEMS && (
                     <Button onClick={() => setItems([...items, emptyItem()])}>{`Add product ${items.length + 1}`}</Button>
                   )}
@@ -431,7 +436,8 @@ function Preview({
   timerMinutes: number;
   copy: { badgeText: string; headline: string; subheadline: string; buttonLabel: string; smallPrint: string };
 }) {
-  const shown = items.filter((it) => it.productId);
+  // The live block shows one product: the first eligible one.
+  const shown = items.filter((it) => it.productId).slice(0, 1);
   const first = shown[0];
   const fp = first ? itemPricing(first, pct) : { unit: 0, off: 0 };
   const tokens = { product: first?.productTitle || "this product", percent: fp.off, price: fp.unit };
@@ -470,6 +476,7 @@ function Preview({
                   <span style={{ fontWeight: 700, fontSize: 16 }}>{fmt(p.unit)}</span>
                   {p.off >= 1 && <span style={{ fontSize: 12, fontWeight: 700, color: accent }}>{Math.round(p.off)}% OFF</span>}
                 </div>
+                {p.compare > p.unit && <div style={{ fontSize: 12, color: accent }}>You save {fmt(p.compare - p.unit)}</div>}
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: (it.maxQuantity || 1) > 1 ? "84px 1fr" : "1fr", gap: 8 }}>
