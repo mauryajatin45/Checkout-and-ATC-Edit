@@ -27,6 +27,7 @@ export default function App() {
         <Link to="/app/timer">Checkout Timer</Link>
         <Link to="/app/upsells">Checkout Upsells</Link>
         <Link to="/app/post-purchase">Post Purchase</Link>
+        <Link to="/app/thank-you">Thank You Page</Link>
       </NavMenu>
       <Outlet />
     </AppProvider>

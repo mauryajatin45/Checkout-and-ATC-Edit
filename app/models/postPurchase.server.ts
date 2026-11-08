@@ -22,13 +22,13 @@ export function numericId(gidOrId: string | number | null | undefined): string {
   return String(gidOrId).split("/").pop()!.split("?")[0];
 }
 
-function clean(v: string | null | undefined, max = 2000): string | null {
+export function clean(v: string | null | undefined, max = 2000): string | null {
   if (v === null || v === undefined) return null;
   const s = String(v).trim();
   return s ? s.slice(0, max) : null;
 }
 
-function clampInt(v: unknown, min: number, max: number, fallback: number): number {
+export function clampInt(v: unknown, min: number, max: number, fallback: number): number {
   const n = Math.round(Number(v));
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, n));

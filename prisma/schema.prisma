@@ -36,6 +36,7 @@ model Store {
   checkoutTimer       CheckoutTimerSettings?
   upsellCampaigns     CheckoutUpsellCampaign[]
   postPurchaseFunnels PostPurchaseFunnel[]
+  thankYouCampaigns   ThankYouCampaign[]
 }
 
 model CheckoutTimerSettings {
@@ -220,4 +221,73 @@ model PostPurchaseEvent {
   @@index([storeId, createdAt])
   @@index([funnelId, type])
   @@index([offerId])
+}
+
+// ─── Thank-you page offer (block on the Thank you page; "Buy now" opens a prefilled new checkout) ───
+
+model ThankYouCampaign {
+  id              String          @id @default(cuid())
+  storeId         String
+  store           Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name            String
+  enabled         Boolean         @default(false)
+  priority        Int             @default(0)
+  // "all" = every order, "products" = order contains one of triggerProducts
+  triggerType     String          @default("all")
+  // JSON array of { id: "gid://shopify/Product/..", title }
+  triggerProducts String?         @db.Text
+  timerMinutes    Int             @default(10)
+  badgeText       String?
+  headline        String?
+  subheadline     String?         @db.Text
+  buttonLabel     String?
+  smallPrint      String?         @db.Text
+  // Optional Shopify discount code applied to the new checkout, and the % it gives (for display only)
+  discountCode    String?
+  discountPercent Float           @default(0)
+  items           ThankYouItem[]
+  events          ThankYouEvent[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([storeId])
+}
+
+model ThankYouItem {
+  id             String           @id @default(cuid())
+  campaignId     String
+  campaign       ThankYouCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  position       Int              @default(0)
+  productId      String
+  variantId      String
+  productTitle   String
+  variantTitle   String?
+  imageUrl       String?          @db.Text
+  variantPrice   String?
+  compareAtPrice String?
+  maxQuantity    Int              @default(3)
+  skipIfInOrder  Boolean          @default(false)
+  events         ThankYouEvent[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([campaignId])
+}
+
+model ThankYouEvent {
+  id          String           @id @default(cuid())
+  storeId     String
+  campaignId  String
+  campaign    ThankYouCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  itemId      String?
+  item        ThankYouItem?    @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  // "view" | "click"
+  type        String
+  referenceId String?
+  quantity    Int?
+  createdAt   DateTime         @default(now())
+
+  @@index([storeId, createdAt])
+  @@index([campaignId, type])
+  @@index([itemId])
 }

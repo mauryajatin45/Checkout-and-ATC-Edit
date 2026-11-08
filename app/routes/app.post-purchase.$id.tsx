@@ -238,11 +238,13 @@ export default function PostPurchaseEditor() {
     const sel = await picker({ type: "product", action: "select", multiple: false });
     const p = sel?.[0];
     if (!p) return;
+    // If a single variant was ticked in the picker, keep it (loadProduct preserves a matching variantId).
+    const pickedVariant = p.variants?.length === 1 ? String(p.variants[0]?.id || "") : "";
     updateStep(i, {
       productId: p.id,
       productTitle: p.title,
       imageUrl: p.images?.[0]?.originalSrc || "",
-      variantId: "",
+      variantId: pickedVariant,
       variantPrice: "",
       compareAtPrice: "",
       variants: [],
