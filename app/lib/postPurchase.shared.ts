@@ -12,7 +12,14 @@ export interface TriggerProduct {
   title: string;
 }
 
+/** "product": add to this order now. "next_box": $0 today, added to the customer's subscription (Recharge). */
+export type OfferType = "product" | "next_box";
+
 export interface OfferInput {
+  offerType?: OfferType;
+  subFirstPrice?: string | null;
+  subRecurringPrice?: string | null;
+  subIntervalDays?: number;
   showWhen?: ShowWhen;
   skipIfInOrder?: boolean;
   showShippingNote?: boolean;

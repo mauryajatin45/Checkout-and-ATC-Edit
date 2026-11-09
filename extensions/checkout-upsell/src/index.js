@@ -275,7 +275,9 @@ export default function (arg1, arg2) {
       }
 
       // 1. Headline (Bold text above the upsell box, optional with comfortable spacing)
-      const cleanHeadline = (currentCampaign.headline || "").trim();
+      // An item can carry its own headline (e.g. a different pitch for the kids bag vs adult gummies).
+      const firstItem = currentCampaign.items[0] || {};
+      const cleanHeadline = (firstItem.headline || currentCampaign.headline || "").trim();
       if (cleanHeadline) {
         const headlineBox = createEl("s-box", {
           "padding-block-end": "base",
@@ -401,6 +403,10 @@ export default function (arg1, arg2) {
           priceStack.appendChild(sellText);
           infoStack.appendChild(priceStack);
 
+          if (item.subtext) {
+            infoStack.appendChild(createEl("s-text", { type: "small", color: "subdued" }, String(item.subtext)));
+          }
+
           if (item.description) {
             const details = createEl("s-details");
             const summary = createEl("s-summary", {}, "Description");
@@ -431,7 +437,8 @@ export default function (arg1, arg2) {
           } else if (inCart) {
             setElementText(btn, "Remove");
           } else {
-            setElementText(btn, "Add to cart");
+            const label = item.buttonLabel ? String(item.buttonLabel).replace(/\{price\}/g, displayPrice) : "Add to cart";
+            setElementText(btn, label);
           }
 
           const btnBg = currentCampaign.buttonColor || "#008060";

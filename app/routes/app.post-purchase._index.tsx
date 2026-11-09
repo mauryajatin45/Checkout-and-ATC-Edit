@@ -28,7 +28,9 @@ import {
   setFunnelEnabled,
   deleteFunnel,
   duplicateFunnel,
+  nextBoxSummary,
 } from "../models/postPurchase.server";
+import { rechargeConfigured } from "../lib/recharge.server";
 import {
   parseJsonArray,
   type TriggerProduct,
@@ -38,7 +40,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   await ensureStore(session.shop, session.accessToken || undefined);
   const since = new Date(Date.now() - 48 * 3600000);
-  const [funnels, stats, callGroups, recentCalls] = await Promise.all([
+  const [funnels, stats, callGroups, recentCalls, nextBox] = await Promise.all([
     listFunnels(session.shop),
     funnelStats(session.shop, 30),
     prisma.extensionLog.groupBy({
@@ -53,8 +55,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       take: 8,
       select: { path: true, method: true, status: true, detail: true, createdAt: true },
     }),
+    nextBoxSummary(session.shop),
   ]);
-  return json({ funnels, stats: stats.byFunnel, shop: session.shop, callGroups, recentCalls });
+  return json({
+    funnels,
+    stats: stats.byFunnel,
+    shop: session.shop,
+    callGroups,
+    recentCalls,
+    nextBox,
+    rechargeReady: rechargeConfigured(),
+  });
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -77,7 +88,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 const money = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function PostPurchaseIndex() {
-  const { funnels, stats, shop, callGroups, recentCalls } = useLoaderData<typeof loader>();
+  const { funnels, stats, shop, callGroups, recentCalls, nextBox, rechargeReady } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const submit = useSubmit();
   const navigation = useNavigation();
@@ -257,6 +268,35 @@ export default function PostPurchaseIndex() {
                   ))}
                 </BlockStack>
               )}
+            </BlockStack>
+          </Card>
+        </Layout.Section>
+
+        <Layout.Section>
+          <Card>
+            <BlockStack gap="200">
+              <Text as="h2" variant="headingSm">“Add to my next box” subscriptions (last 30 days)</Text>
+              {!rechargeReady && (
+                <Banner tone="warning">
+                  RECHARGE_API_TOKEN isn't set on the server, so accepted offers wait in the queue until it is.
+                </Banner>
+              )}
+              <Text as="p" variant="bodySm" tone="subdued">
+                Accepted offers are added to the customer's Recharge subscriptions within a few minutes, on the same date as
+                their next box, then moved to the recurring price after the first delivery is charged.
+              </Text>
+              <InlineStack gap="300">
+                {["pending", "created", "done", "skipped", "failed"].map((k) => (
+                  <Badge key={k} tone={k === "failed" ? "critical" : k === "done" || k === "created" ? "success" : undefined}>
+                    {`${k}: ${nextBox.counts[k] || 0}`}
+                  </Badge>
+                ))}
+              </InlineStack>
+              {nextBox.recent.map((r) => (
+                <Text as="p" variant="bodySm" key={r.id}>
+                  {`${new Date(r.createdAt).toLocaleString()} · ${r.status}${r.customerId ? ` · customer ${r.customerId}` : ""}${r.detail ? ` · ${r.detail}` : ""}`}
+                </Text>
+              ))}
             </BlockStack>
           </Card>
         </Layout.Section>

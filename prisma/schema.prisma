@@ -37,6 +37,20 @@ model Store {
   upsellCampaigns     CheckoutUpsellCampaign[]
   postPurchaseFunnels PostPurchaseFunnel[]
   thankYouCampaigns   ThankYouCampaign[]
+  trustBlock          CheckoutTrustBlock?
+}
+
+// Trust badges in checkout (icon + title + line), replaces the Checkout Blocks "Checkout Trust & Guarantee" block
+model CheckoutTrustBlock {
+  id        String   @id @default(cuid())
+  storeId   String   @unique
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  enabled   Boolean  @default(true)
+  title     String?
+  // JSON array of { icon: "<svg ...>" | "https://..png", title, description }
+  items     String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model CheckoutTimerSettings {
@@ -141,6 +155,15 @@ model CheckoutUpsellItem {
   price              String?
   imageUrl           String?
   position           Int                    @default(0)
+  // Per-item copy: replaces the campaign headline when this is the first item shown, a short line under the
+  // price, and the button label ({price} is filled in)
+  headline           String?
+  subtext            String?                @db.Text
+  buttonLabel        String?
+  // JSON arrays of { id: "gid://shopify/ProductVariant/..", title }: show only when the cart has one of
+  // showIfVariants (empty = always), hide when it has any of hideIfVariants
+  showIfVariants     String?                @db.Text
+  hideIfVariants     String?                @db.Text
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
 
@@ -185,6 +208,13 @@ model PostPurchaseOffer {
   skipIfInOrder   Boolean             @default(true)
   // Show "+ $X shipping" next to the price when Shopify adds shipping
   showShippingNote Boolean            @default(false)
+  // "product" = add the variant to this order (charged now)
+  // "next_box" = nothing charged today; the variant is added to the customer's subscription (Recharge) from
+  // their next delivery, at subFirstPrice once, then subRecurringPrice every subIntervalDays
+  offerType       String              @default("product")
+  subFirstPrice   String?
+  subRecurringPrice String?
+  subIntervalDays Int                 @default(28)
   productId       String
   variantId       String
   productTitle    String
@@ -314,4 +344,36 @@ model ExtensionLog {
 
   @@index([createdAt])
   @@index([path, createdAt])
+}
+
+// A post-purchase "add to my next box" acceptance, turned into a Recharge subscription by a background job.
+model NextBoxRequest {
+  id                     String    @id @default(cuid())
+  shop                   String
+  funnelId               String
+  offerId                String
+  referenceId            String
+  // Shopify customer id from the signed post-purchase token
+  customerId             String?
+  variantId              String
+  productId              String
+  productTitle           String?
+  variantTitle           String?
+  firstPrice             String
+  recurringPrice         String
+  intervalDays           Int       @default(28)
+  // "signed" (waiting for the buyer's accept) | "pending" | "created" (first price set) | "done" | "skipped" | "failed"
+  status                 String    @default("signed")
+  attempts               Int       @default(0)
+  nextAttemptAt          DateTime  @default(now())
+  rechargeCustomerId     String?
+  rechargeSubscriptionId String?
+  firstChargeDate        String?
+  detail                 String?   @db.Text
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@unique([referenceId, offerId])
+  @@index([status, nextAttemptAt])
+  @@index([shop, createdAt])
 }

@@ -7,6 +7,10 @@ import {
 } from "@remix-run/node";
 import { isbot } from "isbot";
 import { addDocumentResponseHeaders } from "./shopify.server";
+import { startNextBoxWorker } from "./lib/nextBox.server";
+
+// Background job: turns accepted "add to my next box" offers into Recharge subscriptions.
+startNextBoxWorker();
 
 export const streamTimeout = 5000;
 

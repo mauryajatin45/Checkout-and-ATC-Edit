@@ -97,7 +97,13 @@ function nextStep(funnel, from, outcome, owned) {
   return -1;
 }
 
+const isNextBox = (step) => !!step && step.offerType === "next_box";
+
 function changesFor(step, quantity) {
+  // "Add to my next box" charges nothing now: preview it as a metafield-only change ($0 outstanding).
+  if (isNextBox(step)) {
+    return [{ type: "set_metafield", namespace: "checkout_and_atc", key: "next_box_offer", value: "preview", valueType: "string" }];
+  }
   const change = { type: "add_variant", variantId: Number(step.variantId), quantity };
   if (step.discountPercent > 0) {
     change.discount = { value: step.discountPercent, valueType: "percentage", title: step.discountTitle || "Exclusive offer" };
@@ -232,7 +238,7 @@ class OfferPage {
       if (result.errors && result.errors.length) {
         throw new Error(result.errors[0].message || "We couldn't add this to your order. You have not been charged.");
       }
-      const charged = this.calc && this.calc.totalOutstandingSet;
+      const charged = isNextBox(step) ? null : this.calc && this.calc.totalOutstandingSet;
       track(this.input, this.funnel, step, "accept", {
         quantity: this.qty,
         revenue: charged ? Number(charged.shopMoney.amount) : null,
@@ -263,6 +269,106 @@ class OfferPage {
   }
 
   // ─── formatting ───────────────────────────────────────────────────────────
+
+  /** Header shared by both offer layouts: confirmation + countdown. */
+  header(firstAccepted) {
+    this.timerText = this.deadline ? this.t(this.timeLeft()) : null;
+    const children = [
+      this.c(TextBlock, {}, [
+        this.t(firstAccepted ? "Added to your order. One more offer: " : "Your order is confirmed. One last offer before your receipt"),
+      ]),
+    ];
+    if (this.timerText) {
+      children.push(
+        this.c(TextBlock, { size: "small" }, [
+          this.t("This offer expires in "),
+          this.c(Text, { emphasized: true, appearance: "critical" }, [this.timerText]),
+        ]),
+      );
+    }
+    return this.c(
+      CalloutBanner,
+      { title: firstAccepted ? "Great choice!" : "Wait! Your order isn't complete", background: "secondary", border: "none", alignment: "center", spacing: "tight" },
+      children,
+    );
+  }
+
+  /**
+   * "Add to my next box": a subscription that starts with the customer's next delivery. Nothing is charged
+   * today; first and recurring prices, the interval and how to cancel are shown before the button.
+   */
+  drawNextBox() {
+    const step = this.step;
+    const busy = this.calculating || this.accepting;
+    const cur = (this.calc && this.calc.totalOutstandingSet.presentmentMoney.currencyCode) || "USD";
+    const first = Number(step.subFirstPrice) || 0;
+    const recurring = Number(step.subRecurringPrice) || 0;
+    const days = Number(step.subIntervalDays) || 28;
+    const p = { pct: recurring > first && recurring > 0 ? (1 - first / recurring) * 100 : 0, total: 0, save: Math.max(0, recurring - first), cur };
+    const fill = (text) =>
+      this.fill(text, p)
+        .replace(/\{first\}/g, this.money(first, cur))
+        .replace(/\{recurring\}/g, this.money(recurring, cur))
+        .replace(/\{days\}/g, String(days));
+
+    const details = [];
+    if (step.badgeText) details.push(this.c(TextBlock, { size: "small", emphasized: true, appearance: "critical" }, [this.t(fill(step.badgeText))]));
+    details.push(this.c(Heading, { level: 2 }, [this.t(fill(step.headline || step.productTitle))]));
+    if (step.subheadline) details.push(this.c(TextBlock, { subdued: true }, [this.t(fill(step.subheadline))]));
+    details.push(
+      this.c(InlineStack, { spacing: "tight", alignment: "baseline" }, [
+        this.c(Text, { size: "xlarge", emphasized: true }, [this.t(this.money(0, cur))]),
+        this.c(Text, { size: "medium", subdued: true }, [this.t("today")]),
+      ]),
+    );
+    const bullets = (step.bullets || []).filter(Boolean);
+    const terms = bullets.length
+      ? bullets
+      : [
+          `First delivery ${this.money(first, cur)}, then ${this.money(recurring, cur)} every ${days} days`,
+          "Skip or cancel anytime from your account",
+        ];
+    details.push(
+      this.c(
+        BlockStack,
+        { spacing: "xtight" },
+        terms.map((b) => this.c(TextBlock, {}, [this.c(Text, { emphasized: true, appearance: "success" }, [this.t("✓ ")]), this.t(fill(b))])),
+      ),
+    );
+    details.push(this.c(Separator, {}));
+    details.push(this.row("Charged today", this.money(0, cur), true));
+    details.push(this.row("First delivery", this.money(first, cur)));
+    details.push(this.row(`Then every ${days} days`, this.money(recurring, cur)));
+    if (this.error) details.push(this.c(Banner, { status: "critical" }, [this.c(TextBlock, {}, [this.t(this.error)])]));
+    details.push(
+      this.c(BlockStack, { spacing: "tight" }, [
+        this.c(
+          Button,
+          { submit: true, loading: busy, loadingLabel: "Adding…", disabled: !this.calc, onPress: () => this.accept() },
+          [this.t(fill(step.acceptLabel || "Add to my deliveries"))],
+        ),
+        this.c(Button, { subdued: true, disabled: this.accepting, onPress: () => this.decline() }, [this.t(fill(step.declineLabel || "No thanks"))]),
+      ]),
+    );
+    if (step.guaranteeText) {
+      details.push(this.c(TextContainer, { alignment: "center" }, [this.c(TextBlock, { size: "small", subdued: true }, [this.t(fill(step.guaranteeText))])]));
+    }
+    const media = step.imageUrl
+      ? this.c(Image, { source: step.imageUrl, description: step.productTitle, aspectRatio: 1.35, fit: "contain", bordered: false })
+      : this.c(View, {}, []);
+    const layout = this.c(
+      Layout,
+      {
+        media: [
+          { viewportSize: "small", sizes: [1, 0, 1], maxInlineSize: 0.9 },
+          { viewportSize: "medium", sizes: [532, 0, 1], maxInlineSize: 420 },
+          { viewportSize: "large", sizes: [560, 38, 340] },
+        ],
+      },
+      [media, this.c(View, {}, []), this.c(BlockStack, { spacing: "loose" }, details)],
+    );
+    this.mount([this.header(this.accepted > 0), layout]);
+  }
 
   money(amount, currency) {
     const n = Number(amount) || 0;
@@ -343,6 +449,7 @@ class OfferPage {
   draw() {
     const step = this.step;
     if (!step) return;
+    if (isNextBox(step)) return this.drawNextBox();
     const p = this.prices();
     const busy = this.calculating || this.accepting;
     const firstAccepted = this.accepted > 0;

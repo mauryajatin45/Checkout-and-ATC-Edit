@@ -13,7 +13,7 @@ import prisma from "../db.server";
 export { MAX_STEPS, parseJsonArray } from "../lib/postPurchase.shared";
 export type { ShowWhen, TriggerType, TriggerProduct, OfferInput, FunnelInput, BuyerType } from "../lib/postPurchase.shared";
 import { MAX_STEPS, parseJsonArray } from "../lib/postPurchase.shared";
-import type { ShowWhen, TriggerType, TriggerProduct, OfferInput, FunnelInput, BuyerType } from "../lib/postPurchase.shared";
+import type { ShowWhen, TriggerType, TriggerProduct, OfferInput, FunnelInput, BuyerType, OfferType } from "../lib/postPurchase.shared";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -42,8 +42,13 @@ export function clampPercent(v: unknown): number {
 }
 
 function offerData(step: OfferInput, position: number) {
+  const nextBox = step.offerType === "next_box";
   return {
     position,
+    offerType: nextBox ? "next_box" : "product",
+    subFirstPrice: nextBox ? clean(step.subFirstPrice, 20) : null,
+    subRecurringPrice: nextBox ? clean(step.subRecurringPrice, 20) : null,
+    subIntervalDays: clampInt(step.subIntervalDays, 1, 365, 28),
     showWhen: (["always", "accepted", "declined"].includes(String(step.showWhen)) ? step.showWhen : "always") as string,
     skipIfInOrder: step.skipIfInOrder ?? true,
     showShippingNote: step.showShippingNote ?? false,
@@ -93,6 +98,9 @@ export function validateFunnel(data: FunnelInput): string | null {
   if (data.steps.length > MAX_STEPS) return `A funnel can have at most ${MAX_STEPS} offers.`;
   for (const [i, s] of data.steps.entries()) {
     if (!s.productId || !s.variantId) return `Offer ${i + 1}: pick a product.`;
+    if (s.offerType === "next_box" && !(Number(s.subFirstPrice) > 0 && Number(s.subRecurringPrice) > 0)) {
+      return `Offer ${i + 1}: enter the first-delivery and recurring prices.`;
+    }
   }
   if (data.triggerType !== "all" && (!data.triggerProducts || data.triggerProducts.length === 0)) {
     return "Pick at least one trigger product, or show the funnel on all orders.";
@@ -191,7 +199,12 @@ export async function duplicateFunnel(shopDomain: string, id: string) {
     includeVariants: parseJsonArray<TriggerProduct>(f.includeVariants),
     excludeVariants: parseJsonArray<TriggerProduct>(f.excludeVariants),
     timerMinutes: f.timerMinutes,
-    steps: f.steps.map((s) => ({ ...s, showWhen: s.showWhen as ShowWhen, bullets: parseJsonArray<string>(s.bullets) })),
+    steps: f.steps.map((s) => ({
+      ...s,
+      offerType: s.offerType as OfferType,
+      showWhen: s.showWhen as ShowWhen,
+      bullets: parseJsonArray<string>(s.bullets),
+    })),
   });
 }
 
@@ -295,6 +308,10 @@ export function publicFunnel(f: NonNullable<Awaited<ReturnType<typeof matchFunne
       showWhen: s.showWhen,
       skipIfInOrder: s.skipIfInOrder,
       showShippingNote: s.showShippingNote,
+      offerType: s.offerType,
+      subFirstPrice: s.subFirstPrice,
+      subRecurringPrice: s.subRecurringPrice,
+      subIntervalDays: s.subIntervalDays,
       productId: Number(numericId(s.productId)),
       variantId: Number(numericId(s.variantId)),
       productTitle: s.productTitle,
@@ -316,14 +333,57 @@ export function publicFunnel(f: NonNullable<Awaited<ReturnType<typeof matchFunne
   };
 }
 
-/** The order change for one offer, rebuilt from the database (never from what the browser sends). */
-export async function offerChanges(shopDomain: string, offerId: string, quantity: number) {
+/** Metafield the "next box" offer writes on the order, so the order shows the buyer accepted it. */
+export const NEXT_BOX_METAFIELD = { namespace: "checkout_and_atc", key: "next_box_offer" };
+
+/**
+ * The order change for one offer, rebuilt from the database (never from what the browser sends).
+ * A "next_box" offer charges nothing: it only tags the order and queues the subscription for the customer
+ * named in the signed post-purchase token.
+ */
+export async function offerChanges(
+  shopDomain: string,
+  offerId: string,
+  quantity: number,
+  ctx: { referenceId?: string; customerId?: string | null } = {},
+) {
   const store = await prisma.store.findUnique({ where: { shopDomain } });
   if (!store) return null;
   const offer = await prisma.postPurchaseOffer.findFirst({
     where: { id: offerId, funnel: { storeId: store.id, enabled: true } },
   });
   if (!offer) return null;
+
+  if (offer.offerType === "next_box") {
+    if (!ctx.referenceId) return null;
+    const data = {
+      shop: shopDomain,
+      funnelId: offer.funnelId,
+      offerId: offer.id,
+      referenceId: ctx.referenceId,
+      customerId: ctx.customerId ? numericId(ctx.customerId) : null,
+      variantId: numericId(offer.variantId),
+      productId: numericId(offer.productId),
+      productTitle: offer.productTitle,
+      variantTitle: offer.variantTitle,
+      firstPrice: offer.subFirstPrice || offer.variantPrice || "0",
+      recurringPrice: offer.subRecurringPrice || offer.variantPrice || "0",
+      intervalDays: offer.subIntervalDays,
+    };
+    await prisma.nextBoxRequest.upsert({
+      where: { referenceId_offerId: { referenceId: ctx.referenceId, offerId: offer.id } },
+      update: { customerId: data.customerId },
+      create: data,
+    });
+    const change = {
+      type: "set_metafield",
+      ...NEXT_BOX_METAFIELD,
+      value: `${offer.productTitle} every ${offer.subIntervalDays} days: ${data.firstPrice} first delivery, then ${data.recurringPrice}`,
+      valueType: "string",
+    };
+    return { offer, quantity: 1, changes: [change] };
+  }
+
   const qty = clampInt(quantity, 1, offer.maxQuantity, 1);
   const change: Record<string, unknown> = {
     type: "add_variant",
@@ -334,6 +394,33 @@ export async function offerChanges(shopDomain: string, offerId: string, quantity
     change.discount = { value: offer.discountPercent, valueType: "percentage", title: offer.discountTitle };
   }
   return { offer, quantity: qty, changes: [change] };
+}
+
+/** The buyer accepted a "next box" offer (Shopify applied the change): let the job create the subscription. */
+export async function confirmNextBox(referenceId: string, offerId: string) {
+  return prisma.nextBoxRequest.updateMany({
+    where: { referenceId, offerId, status: "signed" },
+    data: { status: "pending", nextAttemptAt: new Date() },
+  });
+}
+
+export async function nextBoxSummary(shopDomain: string) {
+  const since = new Date(Date.now() - 30 * 86400000);
+  const [groups, recent] = await Promise.all([
+    prisma.nextBoxRequest.groupBy({ by: ["status"], where: { shop: shopDomain, createdAt: { gte: since } }, _count: { _all: true } }),
+    prisma.nextBoxRequest.findMany({ where: { shop: shopDomain, status: { not: "signed" } }, orderBy: { createdAt: "desc" }, take: 8 }),
+  ]);
+  return {
+    counts: Object.fromEntries(groups.map((g) => [g.status, g._count._all])) as Record<string, number>,
+    recent: recent.map((r) => ({
+      id: r.id,
+      status: r.status,
+      createdAt: r.createdAt.toISOString(),
+      customerId: r.customerId,
+      firstChargeDate: r.firstChargeDate,
+      detail: r.detail,
+    })),
+  };
 }
 
 export async function recordEvent(

@@ -28,6 +28,7 @@ export default function App() {
         <Link to="/app/upsells">Checkout Upsells</Link>
         <Link to="/app/post-purchase">Post Purchase</Link>
         <Link to="/app/thank-you">Thank You Page</Link>
+        <Link to="/app/trust">Trust Badges</Link>
       </NavMenu>
       <Outlet />
     </AppProvider>

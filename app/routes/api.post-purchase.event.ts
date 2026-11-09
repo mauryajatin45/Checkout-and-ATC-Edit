@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { authenticatePostPurchase, json } from "../lib/postPurchaseAuth.server";
-import { recordEvent } from "../models/postPurchase.server";
+import { confirmNextBox, recordEvent } from "../models/postPurchase.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { cors } = await authenticatePostPurchase(request);
@@ -22,6 +22,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         currency: body.currency ?? null,
         detail: body.detail ? String(body.detail) : null,
       });
+      if (body.type === "accept" && body.offerId && body.referenceId) {
+        await confirmNextBox(String(body.referenceId), String(body.offerId));
+      }
     }
   } catch (error) {
     console.error("[Post-purchase] event failed:", error);

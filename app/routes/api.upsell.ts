@@ -1,6 +1,6 @@
 import { json } from "@remix-run/node";
 import type { LoaderFunctionArgs } from "@remix-run/node";
-import { getMatchingUpsell } from "../models/checkoutUpsell.server";
+import { getMatchingUpsell, itemsForCart } from "../models/checkoutUpsell.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
@@ -61,9 +61,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       isEditor
     );
 
+    // Cart rules per item (the editor preview shows every item).
+    const items = campaign ? (isEditor ? campaign.items : itemsForCart(campaign.items, cartVariantIds)) : [];
+
     return json(
       {
-        campaign: campaign
+        campaign: campaign && items.length
           ? {
               id: campaign.id,
               name: campaign.name,
@@ -72,7 +75,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
               sourcePage: campaign.sourcePage,
               buttonColor: campaign.buttonColor || "#0066cc",
               buttonTextColor: campaign.buttonTextColor || "#ffffff",
-              items: campaign.items.map((item) => ({
+              items: items.map((item) => ({
                 id: item.id,
                 shopifyProductId: item.shopifyProductId,
                 shopifyVariantId: item.shopifyVariantId,
@@ -81,6 +84,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
                 strikethroughPrice: item.strikethroughPrice,
                 price: item.price,
                 imageUrl: item.imageUrl,
+                headline: item.headline,
+                subtext: item.subtext,
+                buttonLabel: item.buttonLabel,
               })),
             }
           : null,

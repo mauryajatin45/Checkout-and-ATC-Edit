@@ -8,6 +8,7 @@ import {
   Card,
   BlockStack,
   InlineStack,
+  Tag,
   Text,
   TextField,
   Checkbox,
@@ -159,7 +160,24 @@ interface FormItem {
   price: string;
   imageUrl: string;
   variantsList?: { id: string; title: string; price: string }[];
+  headline: string;
+  subtext: string;
+  buttonLabel: string;
+  showIfVariants: VariantTag[];
+  hideIfVariants: VariantTag[];
 }
+
+type VariantTag = { id: string; title: string };
+const parseTags = (raw: unknown): VariantTag[] => {
+  if (Array.isArray(raw)) return raw as VariantTag[];
+  try {
+    const v = JSON.parse(String(raw || "[]"));
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+};
+const RULE_DEFAULTS = { headline: "", subtext: "", buttonLabel: "", showIfVariants: [] as VariantTag[], hideIfVariants: [] as VariantTag[] };
 
 export default function UpsellCampaignForm() {
   const { isNew, campaign, shopifyProducts } = useLoaderData<typeof loader>();
@@ -189,6 +207,11 @@ export default function UpsellCampaignForm() {
       price: item.price || "",
       imageUrl: item.imageUrl || matchedProduct?.imageUrl || "",
       variantsList: matchedProduct?.variants || [],
+      headline: item.headline || "",
+      subtext: item.subtext || "",
+      buttonLabel: item.buttonLabel || "",
+      showIfVariants: parseTags(item.showIfVariants),
+      hideIfVariants: parseTags(item.hideIfVariants),
     };
   });
 
@@ -229,6 +252,7 @@ export default function UpsellCampaignForm() {
                 title: v.title,
                 price: v.price,
               })),
+              ...RULE_DEFAULTS,
             };
 
             if (existingIdx >= 0) {
@@ -263,6 +287,7 @@ export default function UpsellCampaignForm() {
       price: firstVar.price,
       imageUrl: p.imageUrl || "",
       variantsList: p.variants,
+      ...RULE_DEFAULTS,
     };
 
     setItems([...items, newItem]);
@@ -272,6 +297,23 @@ export default function UpsellCampaignForm() {
   const handleRemoveItem = (index: number) => {
     const updated = items.filter((_, i) => i !== index);
     setItems(updated);
+  };
+
+  const pickRuleVariants = async (index: number, field: "showIfVariants" | "hideIfVariants") => {
+    const picker = (window as any).shopify?.resourcePicker;
+    if (!picker) return;
+    const sel = await picker({
+      type: "variant",
+      action: "select",
+      multiple: true,
+      selectionIds: items[index][field].map((v) => ({ id: v.id })),
+    });
+    if (!sel) return;
+    handleUpdateItem(
+      index,
+      field,
+      sel.map((v: any) => ({ id: v.id, title: v.displayName || [v.product?.title, v.title].filter(Boolean).join(" · ") || v.id })),
+    );
   };
 
   const handleUpdateItem = (index: number, field: keyof FormItem, val: any) => {
@@ -321,6 +363,11 @@ export default function UpsellCampaignForm() {
       price: it.price || null,
       imageUrl: it.imageUrl || null,
       position: idx,
+      headline: it.headline || null,
+      subtext: it.subtext || null,
+      buttonLabel: it.buttonLabel || null,
+      showIfVariants: it.showIfVariants,
+      hideIfVariants: it.hideIfVariants,
     }));
 
     formData.append("items", JSON.stringify(itemsPayload));
@@ -673,6 +720,51 @@ export default function UpsellCampaignForm() {
                                 </Layout.Section>
                               </Layout>
 
+                              <TextField
+                                label="Headline for this item (optional)"
+                                value={item.headline}
+                                onChange={(val) => handleUpdateItem(index, "headline", val)}
+                                placeholder="One for you, too?"
+                                autoComplete="off"
+                                helpText="Replaces the campaign headline when this item is the one shown."
+                              />
+                              <TextField
+                                label="Line under the price (optional)"
+                                value={item.subtext}
+                                onChange={(val) => handleUpdateItem(index, "subtext", val)}
+                                placeholder="One-time purchase, ships in this box."
+                                autoComplete="off"
+                              />
+                              <TextField
+                                label="Button label (optional)"
+                                value={item.buttonLabel}
+                                onChange={(val) => handleUpdateItem(index, "buttonLabel", val)}
+                                placeholder="Add · {price}"
+                                autoComplete="off"
+                                helpText="{price} is filled in. Leave empty for “Add to cart”."
+                              />
+                              {(["showIfVariants", "hideIfVariants"] as const).map((field) => (
+                                <BlockStack gap="100" key={field}>
+                                  <Text as="p" variant="bodyMd">
+                                    {field === "showIfVariants"
+                                      ? "Show only when the cart has one of these variants"
+                                      : "Hide when the cart has any of these variants"}
+                                  </Text>
+                                  <InlineStack gap="200" wrap blockAlign="center">
+                                    {item[field].map((v) => (
+                                      <Tag
+                                        key={v.id}
+                                        onRemove={() => handleUpdateItem(index, field, item[field].filter((x) => x.id !== v.id))}
+                                      >
+                                        {v.title}
+                                      </Tag>
+                                    ))}
+                                    <Button size="slim" onClick={() => pickRuleVariants(index, field)}>
+                                      {item[field].length ? "Edit" : "Choose variants"}
+                                    </Button>
+                                  </InlineStack>
+                                </BlockStack>
+                              ))}
                               <TextField
                                 label="Custom Description (Optional Accordion)"
                                 value={item.customDescription}

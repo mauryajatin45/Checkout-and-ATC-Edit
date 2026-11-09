@@ -110,6 +110,8 @@ const DEFAULT_COPY = {
 
 function emptyStep(position: number): StepState {
   return {
+    offerType: "product",
+    subIntervalDays: 28,
     showWhen: position === 0 ? "always" : "declined",
     skipIfInOrder: true,
     productId: "",
@@ -297,6 +299,10 @@ export default function PostPurchaseEditor() {
         showWhen: s.showWhen,
         skipIfInOrder: s.skipIfInOrder,
         showShippingNote: !!s.showShippingNote,
+        offerType: (s.offerType as any) || "product",
+        subFirstPrice: s.subFirstPrice,
+        subRecurringPrice: s.subRecurringPrice,
+        subIntervalDays: Number(s.subIntervalDays) || 28,
         productId: s.productId,
         variantId: s.variantId,
         productTitle: s.productTitle,
@@ -604,6 +610,45 @@ function StepEditor(props: {
         />
       )}
 
+      <ChoiceList
+        title="Offer type"
+        selected={[s.offerType || "product"]}
+        onChange={(v) => onChange({ offerType: v[0] as any })}
+        choices={[
+          { label: "Add to this order (charged now)", value: "product" },
+          {
+            label: "Add to their subscription from the next box ($0 today, Recharge)",
+            value: "next_box",
+            helpText: "Pick the full-price variant. It's added to their next kids delivery, then renews on its own.",
+          },
+        ]}
+      />
+      {s.offerType === "next_box" && (
+        <InlineGrid columns={3} gap="300">
+          <TextField
+            label="First delivery price"
+            prefix="$"
+            value={String(s.subFirstPrice ?? "")}
+            onChange={(v) => onChange({ subFirstPrice: v })}
+            autoComplete="off"
+          />
+          <TextField
+            label="Then every delivery"
+            prefix="$"
+            value={String(s.subRecurringPrice ?? "")}
+            onChange={(v) => onChange({ subRecurringPrice: v })}
+            autoComplete="off"
+          />
+          <TextField
+            label="Every (days)"
+            type="number"
+            value={String(s.subIntervalDays ?? 28)}
+            onChange={(v) => onChange({ subIntervalDays: Number(v) || 28 })}
+            autoComplete="off"
+          />
+        </InlineGrid>
+      )}
+
       <TextField
         label="Product name shown to the customer"
         value={s.productTitle}
@@ -620,6 +665,7 @@ function StepEditor(props: {
 
       <Divider />
       <Text as="h3" variant="headingSm">Price</Text>
+      {s.offerType !== "next_box" && (
       <InlineGrid columns={3} gap="300">
         <TextField
           label="Discount %"
@@ -652,6 +698,7 @@ function StepEditor(props: {
           autoComplete="off"
         />
       </InlineGrid>
+      )}
       <InlineGrid columns={2} gap="300">
         <TextField
           label="Discount name on the order"

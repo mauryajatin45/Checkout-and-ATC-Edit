@@ -10,6 +10,69 @@ export interface UpsellItemInput {
   price?: string | null;
   imageUrl?: string | null;
   position?: number;
+  headline?: string | null;
+  subtext?: string | null;
+  buttonLabel?: string | null;
+  /** [{ id: "gid://shopify/ProductVariant/..", title }] */
+  showIfVariants?: Array<{ id: string; title: string }>;
+  hideIfVariants?: Array<{ id: string; title: string }>;
+}
+
+const short = (v: unknown, max: number) => {
+  const t = typeof v === "string" ? v.trim() : "";
+  return t ? t.slice(0, max) : null;
+};
+const variantRule = (list: unknown) =>
+  JSON.stringify(
+    (Array.isArray(list) ? list : [])
+      .filter((v: any) => v && v.id)
+      .map((v: any) => ({ id: String(v.id), title: String(v.title || "") })),
+  );
+
+/** Item columns shared by create and update. */
+function itemRow(item: UpsellItemInput, index: number) {
+  return {
+    shopifyProductId: item.shopifyProductId,
+    shopifyVariantId: item.shopifyVariantId,
+    customTitle: item.customTitle || null,
+    customDescription: item.customDescription || null,
+    strikethroughPrice: item.strikethroughPrice || null,
+    price: item.price || null,
+    imageUrl: item.imageUrl || null,
+    position: item.position ?? index,
+    headline: short(item.headline, 190),
+    subtext: short(item.subtext, 1000),
+    buttonLabel: short(item.buttonLabel, 190),
+    showIfVariants: variantRule(item.showIfVariants),
+    hideIfVariants: variantRule(item.hideIfVariants),
+  };
+}
+
+const numId = (v: string) => String(v).split("/").pop()!.split("?")[0];
+function ruleIds(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v.map((x: any) => numId(x?.id || "")).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Items whose cart rules fit: shown only when the cart has one of showIfVariants (if any are set),
+ * and never when it has one of hideIfVariants. E.g. "popup adult in cart -> kids add-on bag, otherwise adult".
+ */
+export function itemsForCart<T extends { showIfVariants: string | null; hideIfVariants: string | null }>(
+  items: T[],
+  cartVariantIds: string[],
+): T[] {
+  const cart = new Set(cartVariantIds.map(numId));
+  return items.filter((it) => {
+    const show = ruleIds(it.showIfVariants);
+    if (show.length && !show.some((v) => cart.has(v))) return false;
+    return !ruleIds(it.hideIfVariants).some((v) => cart.has(v));
+  });
 }
 
 export interface UpsellCampaignInput {
@@ -81,16 +144,7 @@ export async function createUpsellCampaign(shopDomain: string, data: UpsellCampa
       buttonTextColor: data.buttonTextColor || "#ffffff",
       priority: data.priority || 0,
       items: {
-        create: data.items.map((item, index) => ({
-          shopifyProductId: item.shopifyProductId,
-          shopifyVariantId: item.shopifyVariantId,
-          customTitle: item.customTitle || null,
-          customDescription: item.customDescription || null,
-          strikethroughPrice: item.strikethroughPrice || null,
-          price: item.price || null,
-          imageUrl: item.imageUrl || null,
-          position: item.position ?? index,
-        })),
+        create: data.items.map((item, index) => itemRow(item, index)),
       },
     },
     include: {
@@ -133,16 +187,7 @@ export async function updateUpsellCampaign(shopDomain: string, id: string, data:
         buttonTextColor: data.buttonTextColor ?? existing.buttonTextColor ?? "#ffffff",
         priority: data.priority ?? existing.priority,
         items: {
-          create: data.items.map((item, index) => ({
-            shopifyProductId: item.shopifyProductId,
-            shopifyVariantId: item.shopifyVariantId,
-            customTitle: item.customTitle || null,
-            customDescription: item.customDescription || null,
-            strikethroughPrice: item.strikethroughPrice || null,
-            price: item.price || null,
-            imageUrl: item.imageUrl || null,
-            position: item.position ?? index,
-          })),
+          create: data.items.map((item, index) => itemRow(item, index)),
         },
       },
       include: {
