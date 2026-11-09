@@ -17,7 +17,15 @@ function backendFor(domain) {
 
 function el(tag, attrs, children) {
   const node = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs || {})) if (v !== undefined && v !== null && v !== false) node.setAttribute(k, String(v));
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === undefined || v === null || v === false) continue;
+    node.setAttribute(k, String(v));
+    // The checkout's remote DOM reads component props, so set the camelCase property as well (same as checkout-upsell).
+    const prop = k.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+    try {
+      node[prop] = v;
+    } catch (e) {}
+  }
   for (const c of [].concat(children || [])) {
     if (c === null || c === undefined || c === false) continue;
     node.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
@@ -42,14 +50,14 @@ export default async function () {
 
 function render(data) {
   const rows = data.items.map((it) =>
-    el("s-grid", { "grid-template-columns": it.icon ? "36px 1fr" : "1fr", gap: "base", "align-items": "center" }, [
+    el("s-grid", { "grid-template-columns": it.icon ? "36px 1fr" : "1fr", gap: "base", "align-items": "center", "inline-size": "fill" }, [
       it.icon
         ? el("s-grid-item", {}, [
             // Fixed 36px box: the image fills its container, so the box sets the icon size.
             el(
               "s-box",
               { "inline-size": "36px", "max-inline-size": "36px", "block-size": "36px", "max-block-size": "36px", overflow: "hidden" },
-              [el("s-image", { src: it.icon, alt: "", "inline-size": "fill", "aspect-ratio": "1", "object-fit": "contain" })],
+              [el("s-image", { src: it.icon, alt: "", "inline-size": "fill", "aspect-ratio": "1/1", "object-fit": "contain" })],
             ),
           ])
         : null,
