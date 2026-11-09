@@ -60,6 +60,13 @@ function fetchFunnel(inputData) {
     .catch(() => null);
 }
 
+/** Breadcrumbs for the app's Connection check: which stage the page reached, and any crash. Never throws. */
+function diag(inputData, stage, detail) {
+  try {
+    post(inputData, "/api/post-purchase/diag", { stage, detail: detail ? String(detail).slice(0, 500) : "" }).catch(() => {});
+  } catch (e) {}
+}
+
 function track(inputData, funnel, step, type, extra) {
   post(inputData, "/api/post-purchase/event", {
     funnelId: funnel.id,
@@ -112,14 +119,36 @@ function changesFor(step, quantity) {
 }
 
 extend("Checkout::PostPurchase::ShouldRender", async ({ inputData, storage }) => {
-  const funnel = await fetchFunnel(inputData);
-  if (!funnel || nextStep(funnel, 0, null, orderProductIds(inputData)) === -1) return { render: false };
-  await storage.update({ funnel });
-  return { render: true };
+  try {
+    const funnel = await fetchFunnel(inputData);
+    const first = funnel ? nextStep(funnel, 0, null, orderProductIds(inputData)) : -1;
+    if (!funnel || first === -1) return { render: false };
+    await storage.update({ funnel });
+    diag(inputData, "should_render", `yes step=${first}`);
+    return { render: true };
+  } catch (e) {
+    diag(inputData, "should_render_exception", (e && e.message) || e);
+    return { render: false };
+  }
 });
 
 extend("Checkout::PostPurchase::Render", (root, api) => {
-  new OfferPage(root, api).start();
+  diag(api.inputData, "render_start", "");
+  let page;
+  try {
+    page = new OfferPage(root, api);
+  } catch (e) {
+    diag(api.inputData, "render_exception", (e && e.message) || e);
+    api.done();
+    return;
+  }
+  // A crash must never leave the buyer on a spinner: report it and continue to the thank-you page.
+  page.start().catch((e) => {
+    diag(api.inputData, "render_exception", (e && e.stack) || (e && e.message) || e);
+    try {
+      api.done();
+    } catch (err) {}
+  });
 });
 
 class OfferPage {
@@ -151,7 +180,8 @@ class OfferPage {
     const minutes = Number(this.funnel.timerMinutes) || 0;
     if (minutes > 0) {
       this.deadline = Date.now() + minutes * 60000;
-      this.timer = setInterval(() => this.tick(), 1000);
+      // Some sandboxes don't expose timers: the countdown then just shows the start value.
+      if (typeof setInterval === "function") this.timer = setInterval(() => this.tick(), 1000);
     }
     this.goTo(nextStep(this.funnel, 0, null, this.owned));
   }
@@ -189,7 +219,12 @@ class OfferPage {
       return this.goTo(nextStep(this.funnel, index + 1, "declined", this.owned));
     }
     track(this.input, this.funnel, this.step, "view");
-    this.draw();
+    try {
+      this.draw();
+    } catch (e) {
+      diag(this.input, "draw_exception", (e && e.stack) || (e && e.message) || e);
+      throw e;
+    }
   }
 
   async recalculate() {
@@ -263,7 +298,7 @@ class OfferPage {
   }
 
   finish() {
-    if (this.timer) clearInterval(this.timer);
+    if (this.timer && typeof clearInterval === "function") clearInterval(this.timer);
     this.timer = null;
     this.api.done();
   }
