@@ -11,9 +11,9 @@ import prisma from "../db.server";
  */
 
 export { MAX_STEPS, parseJsonArray } from "../lib/postPurchase.shared";
-export type { ShowWhen, TriggerType, TriggerProduct, OfferInput, FunnelInput } from "../lib/postPurchase.shared";
+export type { ShowWhen, TriggerType, TriggerProduct, OfferInput, FunnelInput, BuyerType } from "../lib/postPurchase.shared";
 import { MAX_STEPS, parseJsonArray } from "../lib/postPurchase.shared";
-import type { ShowWhen, TriggerType, TriggerProduct, OfferInput, FunnelInput } from "../lib/postPurchase.shared";
+import type { ShowWhen, TriggerType, TriggerProduct, OfferInput, FunnelInput, BuyerType } from "../lib/postPurchase.shared";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -37,7 +37,8 @@ export function clampInt(v: unknown, min: number, max: number, fallback: number)
 export function clampPercent(v: unknown): number {
   const n = Number(v);
   if (!Number.isFinite(n) || n <= 0) return 0;
-  return Math.min(100, Math.round(n * 100) / 100);
+  // 4 decimals, so an offer price typed in the editor ($12.99 off $14.99 = 13.3422%) lands on the exact cent.
+  return Math.min(100, Math.round(n * 10000) / 10000);
 }
 
 function offerData(step: OfferInput, position: number) {
@@ -67,8 +68,15 @@ function offerData(step: OfferInput, position: number) {
   };
 }
 
+function variantList(list: TriggerProduct[] | undefined) {
+  return JSON.stringify((list || []).filter((v) => v && v.id).map((v) => ({ id: v.id, title: String(v.title || "") })));
+}
+
 function funnelData(data: FunnelInput) {
   return {
+    buyerType: (["subscriber", "onetime"].includes(String(data.buyerType)) ? data.buyerType : "any") as string,
+    includeVariants: variantList(data.includeVariants),
+    excludeVariants: variantList(data.excludeVariants),
     name: clean(data.name, 190) || "Post-purchase offer",
     enabled: data.enabled ?? false,
     priority: clampInt(data.priority, -100, 100, 0),
@@ -179,6 +187,9 @@ export async function duplicateFunnel(shopDomain: string, id: string) {
     priority: f.priority,
     triggerType: f.triggerType as TriggerType,
     triggerProducts: parseJsonArray<TriggerProduct>(f.triggerProducts),
+    buyerType: f.buyerType as BuyerType,
+    includeVariants: parseJsonArray<TriggerProduct>(f.includeVariants),
+    excludeVariants: parseJsonArray<TriggerProduct>(f.excludeVariants),
     timerMinutes: f.timerMinutes,
     steps: f.steps.map((s) => ({ ...s, showWhen: s.showWhen as ShowWhen, bullets: parseJsonArray<string>(s.bullets) })),
   });
@@ -232,9 +243,32 @@ export interface OrderLine {
   productId: string | number;
   variantId: string | number;
   quantity?: number;
+  sellingPlanId?: string | number | null;
 }
 
-/** The funnel for an order: enabled, highest priority, and triggered by a product in the order. */
+/** Why a funnel does or doesn't fit an order. Exported for tests and the admin "who sees this" summary. */
+export function funnelFits(
+  f: { triggerType: string; triggerProducts: string | null; buyerType: string; includeVariants: string | null; excludeVariants: string | null },
+  lines: OrderLine[],
+): boolean {
+  const products = new Set(lines.map((l) => numericId(l.productId)));
+  const variants = new Set(lines.map((l) => numericId(l.variantId)));
+  const subscriber = lines.some((l) => l.sellingPlanId !== null && l.sellingPlanId !== undefined && String(l.sellingPlanId) !== "");
+  if (f.buyerType === "subscriber" && !subscriber) return false;
+  if (f.buyerType === "onetime" && subscriber) return false;
+  const include = parseJsonArray<TriggerProduct>(f.includeVariants).map((v) => numericId(v.id));
+  if (include.length && !include.some((v) => variants.has(v))) return false;
+  const exclude = parseJsonArray<TriggerProduct>(f.excludeVariants).map((v) => numericId(v.id));
+  if (exclude.some((v) => variants.has(v))) return false;
+  if (f.triggerType === "all") return true;
+  const triggers = parseJsonArray<TriggerProduct>(f.triggerProducts).map((p) => numericId(p.id));
+  return triggers.some((t) => products.has(t));
+}
+
+/**
+ * The funnel for an order: enabled, highest priority first, whose conditions all fit the order
+ * (trigger products, subscriber / one-time, must-contain and must-not-contain variants).
+ */
 export async function matchFunnel(shopDomain: string, lines: OrderLine[]) {
   const store = await prisma.store.findUnique({ where: { shopDomain } });
   if (!store) return null;
@@ -243,12 +277,8 @@ export async function matchFunnel(shopDomain: string, lines: OrderLine[]) {
     include: { steps: { orderBy: { position: "asc" } } },
     orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
   });
-  const orderProducts = new Set(lines.map((l) => numericId(l.productId)));
   for (const f of funnels) {
-    if (!f.steps.length) continue;
-    if (f.triggerType === "all") return f;
-    const triggers = parseJsonArray<TriggerProduct>(f.triggerProducts).map((p) => numericId(p.id));
-    if (triggers.some((t) => orderProducts.has(t))) return f;
+    if (f.steps.length && funnelFits(f, lines)) return f;
   }
   return null;
 }

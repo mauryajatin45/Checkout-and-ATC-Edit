@@ -163,6 +163,9 @@ export default function PostPurchaseEditor() {
   const [priority, setPriority] = useState(String(funnel?.priority ?? 0));
   const [triggerType, setTriggerType] = useState<"all" | "products">((funnel?.triggerType as any) || "products");
   const [triggers, setTriggers] = useState<TriggerProduct[]>(parseJsonArray<TriggerProduct>(funnel?.triggerProducts));
+  const [buyerType, setBuyerType] = useState<string>((funnel as any)?.buyerType || "any");
+  const [includeVariants, setIncludeVariants] = useState<TriggerProduct[]>(parseJsonArray<TriggerProduct>((funnel as any)?.includeVariants));
+  const [excludeVariants, setExcludeVariants] = useState<TriggerProduct[]>(parseJsonArray<TriggerProduct>((funnel as any)?.excludeVariants));
   const [timerMinutes, setTimerMinutes] = useState(String(funnel?.timerMinutes ?? 10));
   const [steps, setSteps] = useState<StepState[]>(
     funnel?.steps?.length
@@ -264,6 +267,19 @@ export default function PostPurchaseEditor() {
     if (sel) setTriggers(sel.map((p: any) => ({ id: p.id, title: p.title })));
   }
 
+  async function pickVariants(current: TriggerProduct[], set: (v: TriggerProduct[]) => void) {
+    const picker = (window as any).shopify?.resourcePicker;
+    if (!picker) return;
+    const sel = await picker({ type: "variant", action: "select", multiple: true, selectionIds: current.map((v) => ({ id: v.id })) });
+    if (!sel) return;
+    set(
+      sel.map((v: any) => ({
+        id: v.id,
+        title: v.displayName || [v.product?.title, v.title].filter(Boolean).join(" · ") || v.title || v.id,
+      })),
+    );
+  }
+
   function save(enabledOverride?: boolean) {
     const live = typeof enabledOverride === "boolean" ? enabledOverride : enabled;
     if (typeof enabledOverride === "boolean") setEnabled(enabledOverride);
@@ -273,6 +289,9 @@ export default function PostPurchaseEditor() {
       priority: Number(priority) || 0,
       triggerType,
       triggerProducts: triggers,
+      buyerType: buyerType as any,
+      includeVariants,
+      excludeVariants,
       timerMinutes: Number(timerMinutes) || 0,
       steps: steps.map((s) => ({
         showWhen: s.showWhen,
@@ -362,6 +381,30 @@ export default function PostPurchaseEditor() {
                       </InlineStack>
                     </BlockStack>
                   )}
+                  <ChoiceList
+                    title="Buyer"
+                    selected={[buyerType]}
+                    onChange={(v) => setBuyerType(v[0])}
+                    choices={[
+                      { label: "Everyone", value: "any" },
+                      { label: "Subscribers (the order has a subscription line)", value: "subscriber" },
+                      { label: "One-time buyers (no subscription line)", value: "onetime" },
+                    ]}
+                  />
+                  <VariantRule
+                    title="Only when the order contains one of these variants"
+                    help="Leave empty for no requirement. Use it to build paths, e.g. “took the popup adult gummies”."
+                    items={includeVariants}
+                    onRemove={(id) => setIncludeVariants(includeVariants.filter((x) => x.id !== id))}
+                    onPick={() => pickVariants(includeVariants, setIncludeVariants)}
+                  />
+                  <VariantRule
+                    title="Not when the order contains any of these variants"
+                    help="E.g. skip people who already bought the add-on at checkout, so nobody sees a lower price after paying."
+                    items={excludeVariants}
+                    onRemove={(id) => setExcludeVariants(excludeVariants.filter((x) => x.id !== id))}
+                    onPick={() => pickVariants(excludeVariants, setExcludeVariants)}
+                  />
                   <InlineGrid columns={2} gap="400">
                     <TextField
                       label="Countdown timer (minutes)"
@@ -452,6 +495,31 @@ export default function PostPurchaseEditor() {
         </Layout>
       </BlockStack>
     </Page>
+  );
+}
+
+function VariantRule(props: {
+  title: string;
+  help: string;
+  items: TriggerProduct[];
+  onRemove: (id: string) => void;
+  onPick: () => void;
+}) {
+  return (
+    <BlockStack gap="200">
+      <Text as="p" variant="bodyMd">{props.title}</Text>
+      {props.items.length > 0 && (
+        <InlineStack gap="200" wrap>
+          {props.items.map((v) => (
+            <Tag key={v.id} onRemove={() => props.onRemove(v.id)}>{v.title}</Tag>
+          ))}
+        </InlineStack>
+      )}
+      <InlineStack gap="200" blockAlign="center">
+        <Button onClick={props.onPick}>{props.items.length ? "Edit variants" : "Choose variants"}</Button>
+        <Text as="span" variant="bodySm" tone="subdued">{props.help}</Text>
+      </InlineStack>
+    </BlockStack>
   );
 }
 
@@ -569,7 +637,7 @@ function StepEditor(props: {
           onBlur={() => {
             const p = num(offerPrice);
             if (price.base > 0 && p > 0 && p <= price.base) {
-              onChange({ discountPercent: round2((1 - p / price.base) * 100) });
+              onChange({ discountPercent: Math.round((1 - p / price.base) * 1000000) / 10000 });
             }
           }}
           helpText="Sets the discount for you."

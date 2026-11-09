@@ -160,6 +160,12 @@ model PostPurchaseFunnel {
   triggerType     String              @default("products")
   // JSON array of { id: "gid://shopify/Product/..", title }
   triggerProducts String?             @db.Text
+  // "any" | "subscriber" (a line in the order has a selling plan) | "onetime" (no line has one)
+  buyerType       String              @default("any")
+  // JSON arrays of { id: "gid://shopify/ProductVariant/..", title }: the order must contain one of
+  // includeVariants (empty = no requirement) and none of excludeVariants
+  includeVariants String?             @db.Text
+  excludeVariants String?             @db.Text
   timerMinutes    Int                 @default(10)
   steps           PostPurchaseOffer[]
   events          PostPurchaseEvent[]

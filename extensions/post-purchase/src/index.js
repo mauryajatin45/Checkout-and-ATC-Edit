@@ -51,6 +51,8 @@ function fetchFunnel(inputData) {
     productId: l.product && l.product.id,
     variantId: l.product && l.product.variant && l.product.variant.id,
     quantity: l.quantity,
+    // Set on subscription lines; lets a funnel target subscribers or one-time buyers.
+    sellingPlanId: l.sellingPlanId || null,
   }));
   return post(inputData, "/api/post-purchase/offer", { lineItems })
     .then((r) => (r.ok ? r.json() : null))

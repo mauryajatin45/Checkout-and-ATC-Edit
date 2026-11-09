@@ -4,6 +4,8 @@ export const MAX_STEPS = 3;
 
 export type ShowWhen = "always" | "accepted" | "declined";
 export type TriggerType = "all" | "products";
+/** Who a funnel is for: any order, orders with a subscription line, or orders without one. */
+export type BuyerType = "any" | "subscriber" | "onetime";
 
 export interface TriggerProduct {
   id: string; // gid://shopify/Product/123
@@ -40,6 +42,11 @@ export interface FunnelInput {
   priority?: number;
   triggerType?: TriggerType;
   triggerProducts?: TriggerProduct[];
+  buyerType?: BuyerType;
+  /** The order must contain one of these variants (empty = no requirement). Same { id, title } shape. */
+  includeVariants?: TriggerProduct[];
+  /** The order must contain none of these variants. */
+  excludeVariants?: TriggerProduct[];
   timerMinutes?: number;
   steps: OfferInput[];
 }
