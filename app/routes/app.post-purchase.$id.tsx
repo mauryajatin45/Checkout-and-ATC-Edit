@@ -313,6 +313,7 @@ export default function PostPurchaseEditor() {
         discountPercent: num(s.discountPercent),
         discountTitle: s.discountTitle,
         maxQuantity: Number(s.maxQuantity) || 1,
+        fixedQuantity: Number(s.fixedQuantity) || 0,
         badgeText: s.badgeText,
         headline: s.headline,
         subheadline: s.subheadline,
@@ -490,7 +491,11 @@ export default function PostPurchaseEditor() {
                     onChange={(v) => setPreviewQty(Number(v))}
                   />
                 </InlineStack>
-                <Preview step={current} timerMinutes={Number(timerMinutes) || 0} qty={Math.min(previewQty, Number(current.maxQuantity) || 1)} />
+                <Preview
+                  step={current}
+                  timerMinutes={Number(timerMinutes) || 0}
+                  qty={Number(current.fixedQuantity) > 0 ? Number(current.fixedQuantity) : Math.min(previewQty, Number(current.maxQuantity) || 1)}
+                />
                 <Text as="p" variant="bodySm" tone="subdued">
                   Shopify draws the real page with your checkout fonts and colours. Shipping and tax are added from the
                   customer's address.
@@ -699,7 +704,7 @@ function StepEditor(props: {
         />
       </InlineGrid>
       )}
-      <InlineGrid columns={2} gap="300">
+      <InlineGrid columns={3} gap="300">
         <TextField
           label="Discount name on the order"
           value={s.discountTitle || ""}
@@ -711,6 +716,13 @@ function StepEditor(props: {
           value={String(s.maxQuantity)}
           onChange={(v) => onChange({ maxQuantity: Number(v) })}
           options={["1", "2", "3", "4", "5", "6"].map((v) => ({ label: v === "1" ? "1 (no picker)" : v, value: v }))}
+        />
+        <Select
+          label="Fixed quantity"
+          value={String(s.fixedQuantity || 0)}
+          onChange={(v) => onChange({ fixedQuantity: Number(v) })}
+          options={["0", "2", "3", "4"].map((v) => ({ label: v === "0" ? "Off (buyer picks)" : `Always ${v}`, value: v }))}
+          helpText="E.g. “+2 bags for $36”: always adds this many, no picker."
         />
       </InlineGrid>
       <Checkbox

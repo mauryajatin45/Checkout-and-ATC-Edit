@@ -225,6 +225,8 @@ model PostPurchaseOffer {
   discountPercent Float               @default(0)
   discountTitle   String              @default("Exclusive offer")
   maxQuantity     Int                 @default(3)
+  // > 0: always this many (e.g. "+2 bags for $36"), no quantity picker
+  fixedQuantity   Int                 @default(0)
   badgeText       String?
   headline        String?
   subheadline     String?             @db.Text

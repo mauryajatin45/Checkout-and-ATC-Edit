@@ -33,6 +33,8 @@ export interface OfferInput {
   discountPercent?: number;
   discountTitle?: string | null;
   maxQuantity?: number;
+  /** > 0: always this quantity, no picker. */
+  fixedQuantity?: number;
   badgeText?: string | null;
   headline?: string | null;
   subheadline?: string | null;

@@ -62,6 +62,7 @@ function offerData(step: OfferInput, position: number) {
     discountPercent: clampPercent(step.discountPercent),
     discountTitle: clean(step.discountTitle, 190) || "Exclusive offer",
     maxQuantity: clampInt(step.maxQuantity, 1, 10, 3),
+    fixedQuantity: clampInt(step.fixedQuantity, 0, 10, 0),
     badgeText: clean(step.badgeText, 190),
     headline: clean(step.headline, 190),
     subheadline: clean(step.subheadline, 1000),
@@ -321,6 +322,7 @@ export function publicFunnel(f: NonNullable<Awaited<ReturnType<typeof matchFunne
       discountPercent: s.discountPercent,
       discountTitle: s.discountTitle,
       maxQuantity: s.maxQuantity,
+      fixedQuantity: s.fixedQuantity,
       badgeText: s.badgeText,
       headline: s.headline,
       subheadline: s.subheadline,
@@ -384,7 +386,7 @@ export async function offerChanges(
     return { offer, quantity: 1, changes: [change] };
   }
 
-  const qty = clampInt(quantity, 1, offer.maxQuantity, 1);
+  const qty = offer.fixedQuantity > 0 ? offer.fixedQuantity : clampInt(quantity, 1, offer.maxQuantity, 1);
   const change: Record<string, unknown> = {
     type: "add_variant",
     variantId: Number(numericId(offer.variantId)),

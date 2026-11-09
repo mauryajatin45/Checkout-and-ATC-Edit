@@ -178,7 +178,7 @@ class OfferPage {
   async goTo(index) {
     if (index < 0 || this.accepted >= MAX_ACCEPTED) return this.finish();
     this.stepIndex = index;
-    this.qty = 1;
+    this.qty = Number(this.step.fixedQuantity) > 0 ? Number(this.step.fixedQuantity) : 1;
     this.error = null;
     this.calc = null;
     const ok = await this.recalculate();
@@ -514,7 +514,7 @@ class OfferPage {
 
     // Quantity
     const maxQty = Math.max(1, Number(step.maxQuantity) || 1);
-    if (maxQty > 1) {
+    if (maxQty > 1 && !(Number(step.fixedQuantity) > 0)) {
       details.push(
         this.c(Select, {
           label: "Quantity",
