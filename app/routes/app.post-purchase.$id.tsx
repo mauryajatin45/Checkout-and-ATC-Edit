@@ -784,6 +784,7 @@ function StepEditor(props: {
 
 /** Approximates what Shopify draws for the post-purchase extension (layout, hierarchy, copy, prices). */
 function Preview({ step: s, timerMinutes, qty }: { step: StepState; timerMinutes: number; qty: number }) {
+  if (s.offerType === "next_box") return <NextBoxPreview step={s} timerMinutes={timerMinutes} />;
   const p = stepPricing(s, qty);
   // Saving shown to the customer: against the crossed-out price, so a pre-discounted variant still shows its % off.
   const percent = p.compare > 0 && p.unit < p.compare ? (1 - p.unit / p.compare) * 100 : 0;
@@ -860,6 +861,75 @@ function Preview({ step: s, timerMinutes, qty }: { step: StepState; timerMinutes
             <div style={{ fontSize: 11, color: "#777", textAlign: "center", lineHeight: 1.4 }}>{fillTokens(s.guaranteeText, tokens)}</div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** "Add to my next box": nothing charged today; first and recurring prices shown before the button. */
+function NextBoxPreview({ step: s, timerMinutes }: { step: StepState; timerMinutes: number }) {
+  const first = num(s.subFirstPrice);
+  const recurring = num(s.subRecurringPrice);
+  const days = Number(s.subIntervalDays) || 28;
+  const fill = (t: string | null | undefined) =>
+    fillTokens(t || "", {
+      product: s.productTitle || "this product",
+      percent: recurring > first && recurring > 0 ? (1 - first / recurring) * 100 : 0,
+      price: 0,
+      save: Math.max(0, recurring - first),
+    })
+      .replace(/\{first\}/g, fmt(first))
+      .replace(/\{recurring\}/g, fmt(recurring))
+      .replace(/\{days\}/g, String(days));
+  const bullets = s.bulletsText.split("\n").map((b) => b.trim()).filter(Boolean).slice(0, 6);
+  const terms = bullets.length
+    ? bullets
+    : [`First delivery ${fmt(first)}, then ${fmt(recurring)} every ${days} days`, "Skip or cancel anytime from your account"];
+  const accent = "#1f7a4d";
+  const row = (a: string, b: string, strong = false) => (
+    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: strong ? 700 : 400, color: strong ? "#1a1a1a" : "#555", fontSize: strong ? 14 : 12 }}>
+      <span>{a}</span>
+      <span>{b}</span>
+    </div>
+  );
+  return (
+    <div style={{ border: "1px solid #e3e3e3", borderRadius: 12, background: "#fff", overflow: "hidden", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", color: "#1a1a1a" }}>
+      <div style={{ padding: "10px 14px", background: "#f4f6f8", fontSize: 12, display: "flex", gap: 8, alignItems: "center" }}>
+        <span style={{ color: accent, fontWeight: 700 }}>✓</span>
+        <span>Order confirmed. One last offer before your receipt.</span>
+      </div>
+      {timerMinutes > 0 && (
+        <div style={{ margin: "12px 14px 0", padding: "8px 10px", borderRadius: 8, background: "#fff4e5", fontSize: 13, textAlign: "center" }}>
+          This offer expires in <b style={{ color: "#b42318" }}>{String(timerMinutes).padStart(2, "0")}:00</b>
+        </div>
+      )}
+      <div style={{ padding: 14, display: "grid", gap: 8 }}>
+        {s.imageUrl && <img src={s.imageUrl} alt="" style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "contain", borderRadius: 10, background: "#f6f6f6" }} />}
+        {s.badgeText && <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.6, color: "#b42318" }}>{fill(s.badgeText)}</div>}
+        <div style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.25 }}>{fill(s.headline || s.productTitle)}</div>
+        {s.subheadline && <div style={{ fontSize: 13, color: "#555", lineHeight: 1.45 }}>{fill(s.subheadline)}</div>}
+        <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+          <span style={{ fontSize: 22, fontWeight: 800 }}>{fmt(0)}</span>
+          <span style={{ fontSize: 13, color: "#555" }}>today</span>
+        </div>
+        <div style={{ display: "grid", gap: 5 }}>
+          {terms.map((b, i) => (
+            <div key={i} style={{ fontSize: 13, display: "flex", gap: 6 }}>
+              <span style={{ color: accent, fontWeight: 800 }}>✓</span>
+              <span>{fill(b)}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ borderTop: "1px solid #eee", paddingTop: 8, display: "grid", gap: 3 }}>
+          {row("Charged today", fmt(0), true)}
+          {row("First delivery", fmt(first))}
+          {row(`Then every ${days} days`, fmt(recurring))}
+        </div>
+        <div style={{ background: "#1a1a1a", color: "#fff", textAlign: "center", padding: "12px 10px", borderRadius: 8, fontWeight: 700, fontSize: 14 }}>
+          {fill(s.acceptLabel || "Add to my deliveries")}
+        </div>
+        <div style={{ textAlign: "center", fontSize: 13, color: "#555", textDecoration: "underline" }}>{fill(s.declineLabel || "No thanks")}</div>
+        {s.guaranteeText && <div style={{ fontSize: 11, color: "#777", textAlign: "center", lineHeight: 1.4 }}>{fill(s.guaranteeText)}</div>}
       </div>
     </div>
   );
