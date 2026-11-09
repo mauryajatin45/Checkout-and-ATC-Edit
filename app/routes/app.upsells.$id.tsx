@@ -24,6 +24,7 @@ import {
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import {
+  getUpsellCampaigns,
   getUpsellCampaign,
   createUpsellCampaign,
   updateUpsellCampaign,
@@ -84,10 +85,16 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     })),
   }));
 
+  // Other campaigns, so their products and rules can be copied into this one.
+  const others = (await getUpsellCampaigns(session.shop))
+    .filter((c) => c.id !== id && c.items.length)
+    .map((c) => ({ id: c.id, name: c.name, items: c.items }));
+
   return json({
     isNew,
     campaign,
     shopifyProducts,
+    others,
     shop: session.shop,
   });
 };
@@ -180,7 +187,8 @@ const parseTags = (raw: unknown): VariantTag[] => {
 const RULE_DEFAULTS = { headline: "", subtext: "", buttonLabel: "", showIfVariants: [] as VariantTag[], hideIfVariants: [] as VariantTag[] };
 
 export default function UpsellCampaignForm() {
-  const { isNew, campaign, shopifyProducts } = useLoaderData<typeof loader>();
+  const { isNew, campaign, shopifyProducts, others } = useLoaderData<typeof loader>();
+  const [copyFrom, setCopyFrom] = useState("");
   const navigate = useNavigate();
   const navigation = useNavigation();
   const submit = useSubmit();
@@ -216,6 +224,32 @@ export default function UpsellCampaignForm() {
   });
 
   const [items, setItems] = useState<FormItem[]>(initialItems);
+
+  const copyItemsFrom = (campaignId: string) => {
+    const src = (others as any[]).find((c) => c.id === campaignId);
+    if (!src) return;
+    setItems(
+      src.items.map((item: any) => {
+        const matchedProduct = shopifyProducts.find((p: any) => p.id === item.shopifyProductId);
+        return {
+          shopifyProductId: item.shopifyProductId,
+          shopifyVariantId: item.shopifyVariantId,
+          originalTitle: matchedProduct?.title || item.customTitle || "Product",
+          customTitle: item.customTitle || "",
+          customDescription: item.customDescription || "",
+          strikethroughPrice: item.strikethroughPrice || "",
+          price: item.price || "",
+          imageUrl: item.imageUrl || matchedProduct?.imageUrl || "",
+          variantsList: matchedProduct?.variants || [],
+          headline: item.headline || "",
+          subtext: item.subtext || "",
+          buttonLabel: item.buttonLabel || "",
+          showIfVariants: parseTags(item.showIfVariants),
+          hideIfVariants: parseTags(item.hideIfVariants),
+        };
+      }),
+    );
+  };
   const [selectedProductToAdd, setSelectedProductToAdd] = useState<string>("");
   const [previewDescriptionOpen, setPreviewDescriptionOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -589,6 +623,22 @@ export default function UpsellCampaignForm() {
                       Browse Shopify Products
                     </Button>
                   </InlineStack>
+
+                  {others.length > 0 && (
+                    <InlineStack gap="300" blockAlign="end">
+                      <div style={{ flex: 1 }}>
+                        <Select
+                          label="Copy products and rules from another campaign (replaces the list below)"
+                          options={[{ label: "Choose a campaign…", value: "" }, ...others.map((c: any) => ({ label: c.name, value: c.id }))]}
+                          value={copyFrom}
+                          onChange={setCopyFrom}
+                        />
+                      </div>
+                      <Button disabled={!copyFrom} onClick={() => copyItemsFrom(copyFrom)}>
+                        Copy
+                      </Button>
+                    </InlineStack>
+                  )}
 
                   {/* Manual Quick Add Dropdown */}
                   <InlineStack gap="300" blockAlign="end">
