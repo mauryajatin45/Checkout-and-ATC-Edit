@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useNavigate, useSubmit, useNavigation } from "@remix-run/react";
+import { useLoaderData, useNavigate, useSubmit, useNavigation, useActionData } from "@remix-run/react";
+import { ImportExportCard } from "../components/ImportExportCard";
 import {
   Page,
   Layout,
@@ -29,6 +30,10 @@ import {
   deleteFunnel,
   duplicateFunnel,
   nextBoxSummary,
+  getFunnel,
+  createFunnel,
+  updateFunnel,
+  validateFunnel,
 } from "../models/postPurchase.server";
 import { rechargeConfigured } from "../lib/recharge.server";
 import {
@@ -73,6 +78,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const form = await request.formData();
   const intent = String(form.get("intent") || "");
   const id = String(form.get("id") || "");
+  if (intent === "import") {
+    try {
+      const list = JSON.parse(String(form.get("payload") || "[]"));
+      if (!Array.isArray(list)) throw new Error("Expected a JSON array of funnels");
+      // Validate everything first, so a bad entry doesn't leave a half-imported set.
+      for (const [i, f] of list.entries()) {
+        const problem = validateFunnel(f);
+        if (problem) throw new Error(`Funnel ${i + 1} (${f?.name || "no name"}): ${problem}`);
+      }
+      for (const f of list) {
+        if (f.id && (await getFunnel(session.shop, String(f.id)))) await updateFunnel(session.shop, String(f.id), f);
+        else await createFunnel(session.shop, f);
+      }
+      return json({ ok: true, message: `Imported ${list.length} funnel(s)` });
+    } catch (err: any) {
+      return json({ error: `Import failed: ${err.message}` }, { status: 400 });
+    }
+  }
   if (!id) return json({ error: "Missing id" }, { status: 400 });
   try {
     if (intent === "toggle") await setFunnelEnabled(session.shop, id, form.get("enabled") === "true");
@@ -89,6 +112,27 @@ const money = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigi
 
 export default function PostPurchaseIndex() {
   const { funnels, stats, shop, callGroups, recentCalls, nextBox, rechargeReady } = useLoaderData<typeof loader>();
+  const importResult = useActionData<typeof action>() as any;
+  const exportJson = JSON.stringify(
+    funnels.map((f: any) => ({
+      id: f.id,
+      name: f.name,
+      enabled: f.enabled,
+      priority: f.priority,
+      triggerType: f.triggerType,
+      triggerProducts: parseJsonArray(f.triggerProducts),
+      buyerType: f.buyerType,
+      includeVariants: parseJsonArray(f.includeVariants),
+      excludeVariants: parseJsonArray(f.excludeVariants),
+      timerMinutes: f.timerMinutes,
+      steps: f.steps.map(({ id: _id, funnelId: _f, createdAt: _c, updatedAt: _u, position: _p, bullets, ...rest }: any) => ({
+        ...rest,
+        bullets: parseJsonArray(bullets),
+      })),
+    })),
+    null,
+    2,
+  );
   const navigate = useNavigate();
   const submit = useSubmit();
   const navigation = useNavigation();
@@ -313,6 +357,19 @@ export default function PostPurchaseIndex() {
               </List>
             </BlockStack>
           </Card>
+        </Layout.Section>
+        <Layout.Section>
+          <ImportExportCard
+            what="funnels"
+            exportJson={exportJson}
+            error={importResult?.error || importResult?.message || null}
+            onImport={(text) => {
+              const fd = new FormData();
+              fd.append("intent", "import");
+              fd.append("payload", text);
+              submit(fd, { method: "post" });
+            }}
+          />
         </Layout.Section>
       </Layout>
     </Page>

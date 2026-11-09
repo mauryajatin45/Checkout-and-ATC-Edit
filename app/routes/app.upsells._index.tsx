@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, Link, useNavigate } from "@remix-run/react";
+import { useLoaderData, useSubmit, Link, useNavigate, useActionData, useNavigation } from "@remix-run/react";
+import { ImportExportCard } from "../components/ImportExportCard";
 import {
   Page,
   Layout,
@@ -17,6 +18,9 @@ import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import {
   getUpsellCampaigns,
+  getUpsellCampaign,
+  createUpsellCampaign,
+  updateUpsellCampaign,
   deleteUpsellCampaign,
   toggleUpsellCampaign,
 } from "../models/checkoutUpsell.server";
@@ -32,6 +36,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
   const actionType = formData.get("action");
   const id = formData.get("id") as string;
+
+  if (actionType === "import") {
+    try {
+      const list = JSON.parse(String(formData.get("payload") || "[]"));
+      if (!Array.isArray(list)) throw new Error("Expected a JSON array of campaigns");
+      let n = 0;
+      for (const c of list) {
+        if (!c || !c.name || !Array.isArray(c.items)) throw new Error("Each campaign needs a name and items");
+        const data = { ...c, sourcePage: String(c.sourcePage || "*"), items: c.items };
+        if (c.id && (await getUpsellCampaign(session.shop, String(c.id)))) await updateUpsellCampaign(session.shop, String(c.id), data);
+        else await createUpsellCampaign(session.shop, data);
+        n++;
+      }
+      return json({ success: true, message: `Imported ${n} campaign(s)` });
+    } catch (err: any) {
+      return json({ error: `Import failed: ${err.message}` }, { status: 400 });
+    }
+  }
 
   if (!id) {
     return json({ error: "Missing campaign id" }, { status: 400 });
@@ -52,9 +74,49 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 };
 
+function safeParse(raw: string | null) {
+  try {
+    const v = JSON.parse(raw || "[]");
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function UpsellsIndex() {
   const { campaigns } = useLoaderData<typeof loader>();
   const submit = useSubmit();
+  const actionData = useActionData<typeof action>() as any;
+  const importing = useNavigation().formData?.get("action") === "import";
+  const exportJson = JSON.stringify(
+    campaigns.map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      enabled: c.enabled,
+      sourcePage: c.sourcePage,
+      headline: c.headline,
+      description: c.description,
+      buttonColor: c.buttonColor,
+      buttonTextColor: c.buttonTextColor,
+      priority: c.priority,
+      items: c.items.map((it: any) => ({
+        shopifyProductId: it.shopifyProductId,
+        shopifyVariantId: it.shopifyVariantId,
+        customTitle: it.customTitle,
+        customDescription: it.customDescription,
+        strikethroughPrice: it.strikethroughPrice,
+        price: it.price,
+        imageUrl: it.imageUrl,
+        headline: it.headline,
+        subtext: it.subtext,
+        buttonLabel: it.buttonLabel,
+        showIfVariants: safeParse(it.showIfVariants),
+        hideIfVariants: safeParse(it.hideIfVariants),
+      })),
+    })),
+    null,
+    2,
+  );
   const navigate = useNavigate();
 
   const handleToggle = (id: string, currentEnabled: boolean) => {
@@ -182,6 +244,21 @@ export default function UpsellsIndex() {
               </IndexTable>
             )}
           </Card>
+        </Layout.Section>
+        <Layout.Section>
+          <ImportExportCard
+            what="campaigns"
+            exportJson={exportJson}
+            busy={importing}
+            error={actionData?.error || (actionData?.message && !actionData?.error ? actionData.message : null)}
+            onImport={(text) => {
+              const fd = new FormData();
+              fd.append("action", "import");
+              fd.append("id", "import");
+              fd.append("payload", text);
+              submit(fd, { method: "post" });
+            }}
+          />
         </Layout.Section>
       </Layout>
     </Page>
