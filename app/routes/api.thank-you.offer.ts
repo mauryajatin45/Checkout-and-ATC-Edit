@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { authenticatePostPurchase, json } from "../lib/postPurchaseAuth.server";
+import { authenticatePostPurchase, json, logExtensionCall } from "../lib/postPurchaseAuth.server";
 import { matchCampaign, publicCampaign } from "../models/thankYou.server";
 
 // Authenticated with the checkout session token (Bearer). Preflight is answered inside the helper.
@@ -10,10 +10,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 /** POST { shop, orderId, productIds: string[] } -> { campaign | null } */
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { shop, body, cors } = await authenticatePostPurchase(request);
+  const { shop, body, cors } = await authenticatePostPurchase(request, { logSuccess: false });
   try {
     const productIds: string[] = Array.isArray(body.productIds) ? body.productIds.map(String).slice(0, 100) : [];
     const campaign = shop ? await matchCampaign(shop, productIds) : null;
+    logExtensionCall(request, 200, shop || null, `campaign=${campaign ? campaign.id : "none"} products=${productIds.length}`);
     return cors(json({ campaign: campaign ? publicCampaign(campaign) : null }));
   } catch (error) {
     console.error("[Thank-you offer] lookup failed:", error);

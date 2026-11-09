@@ -20,6 +20,7 @@ import {
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
+import prisma from "../db.server";
 import {
   ensureStore,
   listFunnels,
@@ -36,8 +37,24 @@ import {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   await ensureStore(session.shop, session.accessToken || undefined);
-  const [funnels, stats] = await Promise.all([listFunnels(session.shop), funnelStats(session.shop, 30)]);
-  return json({ funnels, stats: stats.byFunnel, shop: session.shop });
+  const since = new Date(Date.now() - 48 * 3600000);
+  const [funnels, stats, callGroups, recentCalls] = await Promise.all([
+    listFunnels(session.shop),
+    funnelStats(session.shop, 30),
+    prisma.extensionLog.groupBy({
+      by: ["path", "status"],
+      where: { createdAt: { gte: since }, path: { startsWith: "/api/post-purchase" } },
+      _count: { _all: true },
+      _max: { createdAt: true },
+    }),
+    prisma.extensionLog.findMany({
+      where: { path: { startsWith: "/api/post-purchase" } },
+      orderBy: { createdAt: "desc" },
+      take: 8,
+      select: { path: true, method: true, status: true, detail: true, createdAt: true },
+    }),
+  ]);
+  return json({ funnels, stats: stats.byFunnel, shop: session.shop, callGroups, recentCalls });
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -60,7 +77,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 const money = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function PostPurchaseIndex() {
-  const { funnels, stats, shop } = useLoaderData<typeof loader>();
+  const { funnels, stats, shop, callGroups, recentCalls } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const submit = useSubmit();
   const navigation = useNavigation();
@@ -207,6 +224,40 @@ export default function PostPurchaseIndex() {
                 {rows}
               </IndexTable>
             )}
+          </Card>
+        </Layout.Section>
+
+        <Layout.Section>
+          <Card>
+            <BlockStack gap="200">
+              <Text as="h2" variant="headingSm">Connection check (last 48 hours)</Text>
+              <Text as="p" variant="bodySm" tone="subdued">
+                Every call Shopify's post-purchase page makes to this app. No calls after real card orders means Shopify isn't
+                running the page at all (app access or the Settings → Checkout choice); non-200 statuses mean it runs but our server
+                refuses it.
+              </Text>
+              {callGroups.length === 0 ? (
+                <Text as="p" fontWeight="semibold">No calls yet.</Text>
+              ) : (
+                <List>
+                  {callGroups.map((g) => (
+                    <List.Item key={g.path + g.status}>
+                      {`${g.path} · status ${g.status} · ${g._count._all} calls · last ${g._max.createdAt ? new Date(g._max.createdAt).toLocaleString() : "—"}`}
+                    </List.Item>
+                  ))}
+                </List>
+              )}
+              {recentCalls.length > 0 && (
+                <BlockStack gap="050">
+                  <Text as="p" variant="bodySm" tone="subdued">Latest calls</Text>
+                  {recentCalls.map((c, i) => (
+                    <Text as="p" variant="bodySm" key={i}>
+                      {`${new Date(c.createdAt).toLocaleString()} · ${c.method} ${c.path} · ${c.status}${c.detail ? ` · ${c.detail}` : ""}`}
+                    </Text>
+                  ))}
+                </BlockStack>
+              )}
+            </BlockStack>
           </Card>
         </Layout.Section>
 

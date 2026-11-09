@@ -295,3 +295,17 @@ model ThankYouEvent {
   @@index([campaignId, type])
   @@index([itemId])
 }
+
+// ─── Diagnostics: every call from a checkout extension (post-purchase / thank-you) to our API ───
+model ExtensionLog {
+  id        String   @id @default(cuid())
+  shop      String?
+  path      String
+  method    String
+  status    Int
+  detail    String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([path, createdAt])
+}
