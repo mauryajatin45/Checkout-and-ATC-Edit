@@ -42,8 +42,17 @@ export default async function () {
 
 function render(data) {
   const rows = data.items.map((it) =>
-    el("s-grid", { "grid-template-columns": it.icon ? "40px 1fr" : "1fr", gap: "base", "align-items": "center" }, [
-      it.icon ? el("s-grid-item", {}, [el("s-image", { src: it.icon, alt: "", "inline-size": "fill", "aspect-ratio": "1" })]) : null,
+    el("s-grid", { "grid-template-columns": it.icon ? "36px 1fr" : "1fr", gap: "base", "align-items": "center" }, [
+      it.icon
+        ? el("s-grid-item", {}, [
+            // Fixed 36px box: the image fills its container, so the box sets the icon size.
+            el(
+              "s-box",
+              { "inline-size": "36px", "max-inline-size": "36px", "block-size": "36px", "max-block-size": "36px", overflow: "hidden" },
+              [el("s-image", { src: it.icon, alt: "", "inline-size": "fill", "aspect-ratio": "1", "object-fit": "contain" })],
+            ),
+          ])
+        : null,
       el("s-grid-item", {}, [
         el("s-stack", { gap: "none" }, [
           it.title ? el("s-text", { type: "strong" }, it.title) : null,
