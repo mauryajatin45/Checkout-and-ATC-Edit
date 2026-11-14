@@ -1,0 +1,86 @@
+{
+  "payload": {
+    "export": "cart-validations-generate-run",
+    "target": "cart.validations.generate.run",
+    "input": {
+      "buyerJourney": {
+        "step": "CHECKOUT_COMPLETION"
+      },
+      "localization": {
+        "language": {
+          "isoCode": "EN"
+        }
+      },
+      "shop": {
+        "localTime": {
+          "date": "2026-11-14"
+        }
+      },
+      "cart": {
+        "fromOrder": null,
+        "tySig": null,
+        "lines": [
+          {
+            "quantity": 1,
+            "cost": {
+              "totalAmount": {
+                "amount": "0.00"
+              }
+            },
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "id": "gid://shopify/ProductVariant/60000000000002",
+              "product": {
+                "handle": "zeoshield-kids-free-bonus-bag"
+              }
+            }
+          },
+          {
+            "quantity": 1,
+            "cost": {
+              "totalAmount": {
+                "amount": "0.00"
+              }
+            },
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "id": "gid://shopify/ProductVariant/60000000000001",
+              "product": {
+                "handle": "zeolite-kids-detox-gummies"
+              }
+            }
+          },
+          {
+            "quantity": 1,
+            "cost": {
+              "totalAmount": {
+                "amount": "19.99"
+              }
+            },
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "id": "gid://shopify/ProductVariant/67458285535473",
+              "product": {
+                "handle": "zeolite-detox-gummies"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "output": {
+      "operations": [
+        {
+          "validationAdd": {
+            "errors": [
+              {
+                "message": "The add-on price is only available together with Kids Zeolite Gummies. Please add the Kids Gummies or remove the add-on.",
+                "target": "$.cart"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

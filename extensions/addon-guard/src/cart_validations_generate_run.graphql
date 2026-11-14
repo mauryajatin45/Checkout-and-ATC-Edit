@@ -1,0 +1,40 @@
+query CartValidationsGenerateRunInput {
+  buyerJourney {
+    step
+  }
+  localization {
+    language {
+      isoCode
+    }
+  }
+  shop {
+    localTime {
+      date
+    }
+  }
+  cart {
+    fromOrder: attribute(key: "_ty_from_order") {
+      value
+    }
+    tySig: attribute(key: "_ty_sig") {
+      value
+    }
+    lines {
+      quantity
+      cost {
+        totalAmount {
+          amount
+        }
+      }
+      merchandise {
+        __typename
+        ... on ProductVariant {
+          id
+          product {
+            handle
+          }
+        }
+      }
+    }
+  }
+}

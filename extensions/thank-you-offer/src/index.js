@@ -287,6 +287,8 @@ class ThankYouOffer {
     add("discount", this.campaign.discountCode);
     add("attributes[_ty_offer]", this.campaign.id);
     add("attributes[_ty_from_order]", this.orderRef());
+    // Signed by our backend for this order: lets the add-on price through the checkout's add-on guard.
+    add("attributes[_ty_sig]", this.campaign.tySig);
     // Prefill the new checkout with what the buyer just entered (only when Shopify shares it with the app).
     try {
       const bi = this.api.buyerIdentity;

@@ -1,0 +1,66 @@
+{
+  "payload": {
+    "export": "cart-validations-generate-run",
+    "target": "cart.validations.generate.run",
+    "input": {
+      "buyerJourney": {
+        "step": "CHECKOUT_COMPLETION"
+      },
+      "localization": {
+        "language": {
+          "isoCode": "EN"
+        }
+      },
+      "shop": {
+        "localTime": {
+          "date": "2026-11-14"
+        }
+      },
+      "cart": {
+        "fromOrder": null,
+        "tySig": null,
+        "lines": [
+          {
+            "quantity": 1,
+            "cost": {
+              "totalAmount": {
+                "amount": "59.99"
+              }
+            },
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "id": "gid://shopify/ProductVariant/60000000000003",
+              "product": {
+                "handle": "zoyava-zeolite-kids-detox-gummies-mixed-berry-flavored"
+              }
+            }
+          },
+          {
+            "quantity": 1,
+            "cost": {
+              "totalAmount": {
+                "amount": "17.99"
+              }
+            },
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "id": "gid://shopify/ProductVariant/67460790878449",
+              "product": {
+                "handle": "zeolite-detox-gummies"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "output": {
+      "operations": [
+        {
+          "validationAdd": {
+            "errors": []
+          }
+        }
+      ]
+    }
+  }
+}

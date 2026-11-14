@@ -1,0 +1,51 @@
+{
+  "payload": {
+    "export": "cart-validations-generate-run",
+    "target": "cart.validations.generate.run",
+    "input": {
+      "buyerJourney": {
+        "step": "CART_INTERACTION"
+      },
+      "localization": {
+        "language": {
+          "isoCode": "EN"
+        }
+      },
+      "shop": {
+        "localTime": {
+          "date": "2026-11-14"
+        }
+      },
+      "cart": {
+        "fromOrder": null,
+        "tySig": null,
+        "lines": [
+          {
+            "quantity": 1,
+            "cost": {
+              "totalAmount": {
+                "amount": "19.99"
+              }
+            },
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "id": "gid://shopify/ProductVariant/67458285535473",
+              "product": {
+                "handle": "zeolite-detox-gummies"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "output": {
+      "operations": [
+        {
+          "validationAdd": {
+            "errors": []
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "payload": {
+    "export": "cart-validations-generate-run",
+    "target": "cart.validations.generate.run",
+    "input": {
+      "buyerJourney": {
+        "step": "CHECKOUT_COMPLETION"
+      },
+      "localization": {
+        "language": {
+          "isoCode": "ES"
+        }
+      },
+      "shop": {
+        "localTime": {
+          "date": "2026-11-14"
+        }
+      },
+      "cart": {
+        "fromOrder": null,
+        "tySig": null,
+        "lines": [
+          {
+            "quantity": 1,
+            "cost": {
+              "totalAmount": {
+                "amount": "39.99"
+              }
+            },
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "id": "gid://shopify/ProductVariant/60000000000004",
+              "product": {
+                "handle": "gomitas-desintoxicantes-de-zeolita-para-ninos"
+              }
+            }
+          },
+          {
+            "quantity": 1,
+            "cost": {
+              "totalAmount": {
+                "amount": "19.99"
+              }
+            },
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "id": "gid://shopify/ProductVariant/67458285535473",
+              "product": {
+                "handle": "zeolite-detox-gummies"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "output": {
+      "operations": [
+        {
+          "validationAdd": {
+            "errors": []
+          }
+        }
+      ]
+    }
+  }
+}

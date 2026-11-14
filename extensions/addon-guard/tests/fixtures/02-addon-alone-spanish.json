@@ -1,0 +1,56 @@
+{
+  "payload": {
+    "export": "cart-validations-generate-run",
+    "target": "cart.validations.generate.run",
+    "input": {
+      "buyerJourney": {
+        "step": "CHECKOUT_COMPLETION"
+      },
+      "localization": {
+        "language": {
+          "isoCode": "ES"
+        }
+      },
+      "shop": {
+        "localTime": {
+          "date": "2026-11-14"
+        }
+      },
+      "cart": {
+        "fromOrder": null,
+        "tySig": null,
+        "lines": [
+          {
+            "quantity": 1,
+            "cost": {
+              "totalAmount": {
+                "amount": "14.99"
+              }
+            },
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "id": "gid://shopify/ProductVariant/67475122258161",
+              "product": {
+                "handle": "zeolite-kids-detox-gummies"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "output": {
+      "operations": [
+        {
+          "validationAdd": {
+            "errors": [
+              {
+                "message": "El precio especial del complemento solo está disponible junto con las Gomitas de Zeolita para Niños. Agrega las gomitas para niños o elimina el complemento.",
+                "target": "$.cart"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
