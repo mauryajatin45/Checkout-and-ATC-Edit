@@ -1,4 +1,5 @@
 api_version = "2026-07"
+uid = "a884944e-321e-3ee2-0b1e-72db673c53fb845e2a6a"
 
 [[extensions]]
 name = "Trust Badges"

@@ -1,4 +1,5 @@
 api_version = "2026-07"
+uid = "6752028e-ec43-8393-87c7-8d22c1de0b5c0782eb8d"
 
 [[extensions]]
 name = "Post Purchase Offer"
