@@ -30,6 +30,7 @@ export const ADDON_VARIANTS = new Set([
   "67475122323697", // Kids · Backup Bag $12.99
   "67475123929329", // Kids · Guarantee Bag $18.00
   "67369289154801", // Kids · (1 Bags) $14.99
+  "48740950376689", // Kids (zeolite-kids-gummies) · (1 Bags) $14.99 post-purchase bag
 ]);
 
 // Free-shipping extras from the upsells ("Add-ons (ship free with main order)" profile). They need a paid main
