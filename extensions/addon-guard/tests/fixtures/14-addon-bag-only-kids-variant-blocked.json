@@ -30,6 +30,7 @@
             "merchandise": {
               "__typename": "ProductVariant",
               "id": "gid://shopify/ProductVariant/67475122258161",
+              "requiresShipping": true,
               "product": {
                 "handle": "zeolite-kids-detox-gummies"
               }
@@ -45,6 +46,7 @@
             "merchandise": {
               "__typename": "ProductVariant",
               "id": "gid://shopify/ProductVariant/67475122290929",
+              "requiresShipping": true,
               "product": {
                 "handle": "zeolite-kids-detox-gummies"
               }

@@ -1,0 +1,84 @@
+{
+  "payload": {
+    "export": "cart-validations-generate-run",
+    "target": "cart.validations.generate.run",
+    "input": {
+      "buyerJourney": {
+        "step": "CHECKOUT_COMPLETION"
+      },
+      "localization": {
+        "language": {
+          "isoCode": "EN"
+        }
+      },
+      "shop": {
+        "localTime": {
+          "date": "2026-11-14"
+        }
+      },
+      "cart": {
+        "fromOrder": null,
+        "tySig": null,
+        "lines": [
+          {
+            "quantity": 1,
+            "cost": {
+              "totalAmount": {
+                "amount": "82.49"
+              }
+            },
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "id": "gid://shopify/ProductVariant/60000000000001",
+              "requiresShipping": true,
+              "product": {
+                "handle": "zeolite-kids-detox-gummies"
+              }
+            }
+          },
+          {
+            "quantity": 1,
+            "cost": {
+              "totalAmount": {
+                "amount": "6.99"
+              }
+            },
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "id": "gid://shopify/ProductVariant/48819320127729",
+              "requiresShipping": true,
+              "product": {
+                "handle": "zoyava-travel-tin"
+              }
+            }
+          },
+          {
+            "quantity": 1,
+            "cost": {
+              "totalAmount": {
+                "amount": "9.99"
+              }
+            },
+            "merchandise": {
+              "__typename": "ProductVariant",
+              "id": "gid://shopify/ProductVariant/48819323601137",
+              "requiresShipping": true,
+              "product": {
+                "handle": "zoyava-waterbottle-for-kids"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "output": {
+      "operations": [
+        {
+          "validationAdd": {
+            "errors": []
+          }
+        }
+      ]
+    }
+  }
+}

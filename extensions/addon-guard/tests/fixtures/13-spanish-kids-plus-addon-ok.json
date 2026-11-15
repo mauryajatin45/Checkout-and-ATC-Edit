@@ -30,6 +30,7 @@
             "merchandise": {
               "__typename": "ProductVariant",
               "id": "gid://shopify/ProductVariant/60000000000004",
+              "requiresShipping": true,
               "product": {
                 "handle": "gomitas-desintoxicantes-de-zeolita-para-ninos"
               }
@@ -45,6 +46,7 @@
             "merchandise": {
               "__typename": "ProductVariant",
               "id": "gid://shopify/ProductVariant/67458285535473",
+              "requiresShipping": true,
               "product": {
                 "handle": "zeolite-detox-gummies"
               }

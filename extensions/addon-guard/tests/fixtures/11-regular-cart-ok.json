@@ -30,6 +30,7 @@
             "merchandise": {
               "__typename": "ProductVariant",
               "id": "gid://shopify/ProductVariant/67411189367025",
+              "requiresShipping": true,
               "product": {
                 "handle": "zeolite-detox-gummies"
               }

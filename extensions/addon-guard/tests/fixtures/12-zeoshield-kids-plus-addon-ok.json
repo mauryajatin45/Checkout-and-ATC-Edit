@@ -30,6 +30,7 @@
             "merchandise": {
               "__typename": "ProductVariant",
               "id": "gid://shopify/ProductVariant/60000000000003",
+              "requiresShipping": true,
               "product": {
                 "handle": "zoyava-zeolite-kids-detox-gummies-mixed-berry-flavored"
               }
@@ -45,6 +46,7 @@
             "merchandise": {
               "__typename": "ProductVariant",
               "id": "gid://shopify/ProductVariant/67460790878449",
+              "requiresShipping": true,
               "product": {
                 "handle": "zeolite-detox-gummies"
               }

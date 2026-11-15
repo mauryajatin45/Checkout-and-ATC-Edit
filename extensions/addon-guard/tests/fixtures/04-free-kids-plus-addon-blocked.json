@@ -30,6 +30,7 @@
             "merchandise": {
               "__typename": "ProductVariant",
               "id": "gid://shopify/ProductVariant/60000000000002",
+              "requiresShipping": true,
               "product": {
                 "handle": "zeoshield-kids-free-bonus-bag"
               }
@@ -45,6 +46,7 @@
             "merchandise": {
               "__typename": "ProductVariant",
               "id": "gid://shopify/ProductVariant/60000000000001",
+              "requiresShipping": true,
               "product": {
                 "handle": "zeolite-kids-detox-gummies"
               }
@@ -60,6 +62,7 @@
             "merchandise": {
               "__typename": "ProductVariant",
               "id": "gid://shopify/ProductVariant/67458285535473",
+              "requiresShipping": true,
               "product": {
                 "handle": "zeolite-detox-gummies"
               }

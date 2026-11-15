@@ -30,6 +30,7 @@ query CartValidationsGenerateRunInput {
         __typename
         ... on ProductVariant {
           id
+          requiresShipping
           product {
             handle
           }
