@@ -40,6 +40,14 @@ export const EXTRA_VARIANTS = new Set([
   "48819323601137", // Zoyava Kids Water Bottle $9.99
 ]);
 
+// BOGO test page (zeolite-kids-detox-gummies-bogo): the $0 "Free Bonus Bag" is only earned by the bundle
+// variants, N free bags per bundle bought. Any free bag above that allowance blocks checkout.
+export const FREE_BAG_VARIANT = "67553847869681";
+export const FREE_BAG_EARNERS = new Map([
+  ["67553827029233", 1], // Buy 2 Get 1 Free
+  ["67553827062001", 2], // Buy 3 Get 2 Free
+]);
+
 // HMAC key of the backend's thank-you signature (app/lib/addonSignature.server.ts), as its precomputed ipad/opad
 // SHA-256 states so a check costs two compressions instead of four. Regenerate both sides together:
 //   node --input-type=module -e "import {hmacMidstates} from './src/hmac.js'; console.log(JSON.stringify(hmacMidstates(KEY)))"
@@ -85,10 +93,17 @@ export function cartValidationsGenerateRun(input) {
     let extras = 0;
     let paidKids = 0;
     let paidMain = 0;
+    let freeBags = 0;
+    let freeBagAllowance = 0;
     for (const line of input.cart.lines) {
       const m = line.merchandise;
       if (!m || m.__typename !== "ProductVariant") continue;
       const id = numericId(m.id);
+      if (id === FREE_BAG_VARIANT) {
+        freeBags += line.quantity;
+        continue;
+      }
+      if (FREE_BAG_EARNERS.has(id)) freeBagAllowance += line.quantity * FREE_BAG_EARNERS.get(id);
       if (ADDON_VARIANTS.has(id)) {
         addons += line.quantity;
         continue;
@@ -107,6 +122,14 @@ export function cartValidationsGenerateRun(input) {
     const es = String((input.localization && input.localization.language && input.localization.language.isoCode) || "EN")
       .toUpperCase()
       .startsWith("ES");
+    if (freeBags > freeBagAllowance) {
+      errors.push({
+        message: es
+          ? "La bolsa de regalo solo se incluye con los paquetes Compra 2 y llévate 1 o Compra 3 y llévate 2. Elige un paquete o elimina la bolsa de regalo."
+          : "Free bonus bags only come with the Buy 2 Get 1 or Buy 3 Get 2 bundles. Please choose a bundle or remove the extra free bag.",
+        target: "$.cart",
+      });
+    }
     if ((addons > 0 && paidKids === 0) || (extras > 0 && paidMain === 0)) {
       const today = input.shop && input.shop.localTime && input.shop.localTime.date;
       const fromOrder = input.cart.fromOrder && input.cart.fromOrder.value;
