@@ -40,12 +40,18 @@ export const EXTRA_VARIANTS = new Set([
   "48819323601137", // Zoyava Kids Water Bottle $9.99
 ]);
 
-// BOGO test page (zeolite-kids-detox-gummies-bogo): the $0 "Free Bonus Bag" is only earned by the bundle
-// variants, N free bags per bundle bought. Any free bag above that allowance blocks checkout.
+// BOGO test page (zeolite-kids-detox-gummies-bogo): the $0 gifts are only earned by the bundle variants (sub or one-time).
+// Per bundle bought: Buy 2 Get 1 = 1 free bag + 1 free PDF guide; Buy 3 Get 2 = 2 free bags + 1 free PDF guide + 1 Travel Tin.
+// Any gift above that allowance blocks checkout.
 export const FREE_BAG_VARIANT = "67553847869681";
+export const FREE_GIFTS = {
+  "67553847869681": "bag", // Zeolite Kids Detox Gummies — Free Bonus Bag
+  "67555315646705": "pdf", // Calm Routines: A Parent's Guide — Free Gift (digital)
+  "67555314794737": "tin", // Zoyava Travel Tin — Free Gift
+};
 export const FREE_BAG_EARNERS = new Map([
-  ["67553827029233", 1], // Buy 2 Get 1 Free
-  ["67553827062001", 2], // Buy 3 Get 2 Free
+  ["67553827029233", { bag: 1, pdf: 1, tin: 0 }], // Buy 2 Get 1 Free
+  ["67553827062001", { bag: 2, pdf: 1, tin: 1 }], // Buy 3 Get 2 Free
 ]);
 
 // HMAC key of the backend's thank-you signature (app/lib/addonSignature.server.ts), as its precomputed ipad/opad
@@ -93,17 +99,19 @@ export function cartValidationsGenerateRun(input) {
     let extras = 0;
     let paidKids = 0;
     let paidMain = 0;
-    let freeBags = 0;
-    let freeBagAllowance = 0;
+    const gifts = { bag: 0, pdf: 0, tin: 0 };
+    const allowance = { bag: 0, pdf: 0, tin: 0 };
     for (const line of input.cart.lines) {
       const m = line.merchandise;
       if (!m || m.__typename !== "ProductVariant") continue;
       const id = numericId(m.id);
-      if (id === FREE_BAG_VARIANT) {
-        freeBags += line.quantity;
+      const gift = FREE_GIFTS[id];
+      if (gift) {
+        gifts[gift] += line.quantity;
         continue;
       }
-      if (FREE_BAG_EARNERS.has(id)) freeBagAllowance += line.quantity * FREE_BAG_EARNERS.get(id);
+      const earn = FREE_BAG_EARNERS.get(id);
+      if (earn) for (const k in earn) allowance[k] += line.quantity * earn[k];
       if (ADDON_VARIANTS.has(id)) {
         addons += line.quantity;
         continue;
@@ -122,11 +130,11 @@ export function cartValidationsGenerateRun(input) {
     const es = String((input.localization && input.localization.language && input.localization.language.isoCode) || "EN")
       .toUpperCase()
       .startsWith("ES");
-    if (freeBags > freeBagAllowance) {
+    if (gifts.bag > allowance.bag || gifts.pdf > allowance.pdf || gifts.tin > allowance.tin) {
       errors.push({
         message: es
-          ? "La bolsa de regalo solo se incluye con los paquetes Compra 2 y llévate 1 o Compra 3 y llévate 2. Elige un paquete o elimina la bolsa de regalo."
-          : "Free bonus bags only come with the Buy 2 Get 1 or Buy 3 Get 2 bundles. Please choose a bundle or remove the extra free bag.",
+          ? "Los regalos gratis solo se incluyen con los paquetes Compra 2 y llévate 1 o Compra 3 y llévate 2. Elige un paquete o elimina el regalo."
+          : "Free gifts only come with the Buy 2 Get 1 or Buy 3 Get 2 bundles. Please choose a bundle or remove the extra free item.",
         target: "$.cart",
       });
     }

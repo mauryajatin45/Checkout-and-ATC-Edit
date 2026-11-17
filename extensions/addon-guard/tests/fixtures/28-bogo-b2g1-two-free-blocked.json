@@ -61,7 +61,7 @@
           "validationAdd": {
             "errors": [
               {
-                "message": "Free bonus bags only come with the Buy 2 Get 1 or Buy 3 Get 2 bundles. Please choose a bundle or remove the extra free bag.",
+                "message": "Free gifts only come with the Buy 2 Get 1 or Buy 3 Get 2 bundles. Please choose a bundle or remove the extra free item.",
                 "target": "$.cart"
               }
             ]

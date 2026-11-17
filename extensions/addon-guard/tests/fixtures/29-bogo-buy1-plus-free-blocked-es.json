@@ -61,7 +61,7 @@
           "validationAdd": {
             "errors": [
               {
-                "message": "La bolsa de regalo solo se incluye con los paquetes Compra 2 y llévate 1 o Compra 3 y llévate 2. Elige un paquete o elimina la bolsa de regalo.",
+                "message": "Los regalos gratis solo se incluyen con los paquetes Compra 2 y llévate 1 o Compra 3 y llévate 2. Elige un paquete o elimina el regalo.",
                 "target": "$.cart"
               }
             ]
