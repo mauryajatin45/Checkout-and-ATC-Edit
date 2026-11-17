@@ -24,7 +24,8 @@ import { hmacHexFromMidstates } from "./hmac.js";
 export const ADDON_VARIANTS = new Set([
   "67458285535473", // Adult · Add-on with Kids Gummies (popup) $19.99
   "67475121537265", // Adult · Checkout Add-on $19.99
-  "67460790878449", // Adult · Special Add-on (thank-you / post-purchase) $17.99
+  "67460790878449", // Adult · Special Add-on (post-purchase) $17.99
+  "67560894431473", // Adult · Thank-you Add-on $17.99 (own order: Standard $5 shipping profile)
   "67475122258161", // Kids · Add-on Bag $14.99
   "67475122290929", // Kids · Extra Bag $14.99
   "67475122323697", // Kids · Backup Bag $12.99
