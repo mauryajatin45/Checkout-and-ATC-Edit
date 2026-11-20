@@ -49,10 +49,16 @@ export const FREE_GIFTS = {
   "67553847869681": "bag", // Zeolite Kids Detox Gummies — Free Bonus Bag
   "67555315646705": "pdf", // Calm Routines: A Parent's Guide — Free Gift (digital)
   "67555314794737": "tin", // Zoyava Travel Tin — Free Gift
+  // Spanish BOGO page (gomitas-desintoxicantes-de-zeolita-para-ninos-bogo) — same gifts under Spanish names
+  "67591397310705": "bag", // Gomitas de Zeolita para Niños — Bolsa Gratis de Regalo
+  "67591397474545": "pdf", // Rutinas Tranquilas: Guía para Padres — Regalo Gratis (digital)
+  "67591397572849": "tin", // Estuche de Viaje Zoyava — Regalo Gratis
 };
 export const FREE_BAG_EARNERS = new Map([
   ["67553827029233", { bag: 1, pdf: 1, tin: 0 }], // Buy 2 Get 1 Free
   ["67553827062001", { bag: 2, pdf: 1, tin: 1 }], // Buy 3 Get 2 Free
+  ["67591397114097", { bag: 1, pdf: 1, tin: 0 }], // ES: Compra 2 y llévate 1 (2 Bolsas)
+  ["67591397146865", { bag: 2, pdf: 1, tin: 1 }], // ES: Compra 3 y llévate 2 (3 Bolsas)
 ]);
 
 // HMAC key of the backend's thank-you signature (app/lib/addonSignature.server.ts), as its precomputed ipad/opad
