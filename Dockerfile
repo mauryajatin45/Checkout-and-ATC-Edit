@@ -13,7 +13,9 @@ WORKDIR /app
 
 COPY package.json ./
 COPY prisma ./prisma
-RUN npm install --no-audit --no-fund
+# --include=dev: Coolify passes NODE_ENV=production as a build arg, which
+# would otherwise skip the build tools (remix, vite) in devDependencies.
+RUN npm install --include=dev --no-audit --no-fund
 
 COPY . .
 RUN npx prisma generate && npm run build
