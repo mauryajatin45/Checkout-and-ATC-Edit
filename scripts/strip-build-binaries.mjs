@@ -10,8 +10,13 @@
 import { readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 
+// COOLIFY_* vars are not always passed into the image build (e.g. webhook
+// deploys), which is why the 20 Nov builds shipped esbuild again. Coolify's
+// Dockerfile and Railpack builds both run in /app, which no dev machine uses.
 const isDeployBuild = Boolean(
-  process.env.COOLIFY_RESOURCE_UUID ||
+  process.cwd() === "/app" ||
+    process.env.NODE_ENV === "production" ||
+    process.env.COOLIFY_RESOURCE_UUID ||
     process.env.COOLIFY_BRANCH ||
     process.env.COOLIFY_FQDN ||
     process.env.SOURCE_COMMIT ||
