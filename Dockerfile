@@ -25,8 +25,9 @@ RUN npm prune --omit=dev --no-audit --no-fund \
   && npx --no-install prisma --version >/dev/null
 
 FROM node:22-bookworm-slim
+# curl/wget: Coolify runs its health check inside the container.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && apt-get install -y --no-install-recommends openssl ca-certificates curl wget \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NODE_ENV=production
