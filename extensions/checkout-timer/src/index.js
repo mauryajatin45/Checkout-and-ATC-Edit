@@ -188,6 +188,24 @@ export default function() {
     }
   }
 
+  // Spanish checkouts (es / es-US) get Spanish copy; everything else keeps the dashboard text.
+  function checkoutLanguage() {
+    try {
+      const lang = api.localization && api.localization.language;
+      const cur = lang && (lang.value || lang.current);
+      return String((cur && cur.isoCode) || '').toLowerCase();
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function timerLabel() {
+    if (checkoutLanguage().startsWith('es')) {
+      return timerSettings.textEs || 'Debido a la alta demanda, tu pedido está reservado por:';
+    }
+    return timerSettings.text || '';
+  }
+
   function render() {
     clearRoot();
 
@@ -209,7 +227,7 @@ export default function() {
     const fontSize = timerSettings.fontSize || 'base';
     containerText = createEl('s-text', { size: fontSize });
 
-    const labelEl = createEl('s-text', {}, (timerSettings.text || '') + ' ');
+    const labelEl = createEl('s-text', {}, timerLabel() + ' ');
     containerText.appendChild(labelEl);
 
     const m = Math.floor(timeRemaining / 60).toString().padStart(2, '0');

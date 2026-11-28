@@ -9,6 +9,8 @@ type = "ui_extension"
 [extensions.capabilities]
 # fetch() the badges configured in the app (Checkout and ATC -> Trust Badges)
 network_access = true
+# Storefront API: renewal price + interval of the cart's selling plans (recurring line)
+api_access = true
 
 [[extensions.targeting]]
 target = "purchase.checkout.block.render"
