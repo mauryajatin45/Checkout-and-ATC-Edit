@@ -99,7 +99,9 @@ async function recurringText(api) {
     const unit = String(bp.interval || "").toLowerCase();
     const n = Number(bp.intervalCount || 0);
     const days = (String(alloc.sellingPlan.name || "").match(/(\d+)\s*day/i) || [])[1];
-    const label = unit && n ? (n === 1 ? unit : `${n} ${unit}s`) : days ? `${days} days` : "";
+    let label = unit && n ? (n === 1 ? unit : `${n} ${unit}s`) : days ? `${days} days` : "";
+    // Client wording: 4-weekly plans read as "1 month" (billing itself stays every 28 days)
+    if (label === "28 days" || label === "4 weeks" || label === "month") label = "1 month";
     if (!label || (every && every !== label)) return ""; // unknown or mixed intervals
     every = label;
   }
