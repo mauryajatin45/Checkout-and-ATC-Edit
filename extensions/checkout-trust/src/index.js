@@ -37,15 +37,13 @@ export default async function () {
   const api = globalThis.shopify;
   if (!api || typeof document === "undefined") return;
   const shop = (api.shop && (val(api.shop.myshopifyDomain) || api.shop.myshopifyDomain)) || "";
-  // English checkouts: the store's checkout text leaves Shopify's own "First payment ..., then ..." blank
+  // The store's checkout text (English and Spanish) leaves Shopify's own "First payment ..., then ..." blank
   // (so it no longer repeats under each product), so this block shows it once, right under "Recurring subtotal".
-  if (!isSpanish(api)) {
-    try {
-      const text = await recurringText(api);
-      if (text) document.body.appendChild(el("s-box", { "padding-block-end": "base" }, [el("s-text", { type: "strong" }, text)]));
-    } catch (err) {
-      console.error("[Trust Badges] recurring line", err);
-    }
+  try {
+    const text = await recurringText(api, isSpanish(api));
+    if (text) document.body.appendChild(el("s-box", { "padding-block-end": "base" }, [el("s-text", { type: "strong" }, text)]));
+  } catch (err) {
+    console.error("[Trust Badges] recurring line", err);
   }
   try {
     const res = await fetch(`${backendFor(shop)}/api/trust?shop=${encodeURIComponent(shop)}`);
@@ -73,7 +71,7 @@ const ES = {
 
 // "First payment $20.00, then $39.99 every 28 days" for the subscription lines in the cart.
 // First payment = what the lines cost today; renewal price and interval come from the selling plan (Storefront API).
-async function recurringText(api) {
+async function recurringText(api, es) {
   const lines = (val(api.lines) || []).filter((l) => l && l.merchandise && l.merchandise.sellingPlan);
   if (!lines.length || typeof api.query !== "function") return "";
   const q = `query Z($ids: [ID!]!) { nodes(ids: $ids) { ... on ProductVariant { id
@@ -106,6 +104,11 @@ async function recurringText(api) {
     every = label;
   }
   const fmt = (v) => new Intl.NumberFormat("en-US", { style: "currency", currency: cur }).format(v);
+  if (es) {
+    const ES_EVERY = { "1 month": "1 mes", month: "mes", week: "semana", day: "día", year: "año" };
+    const esEvery = ES_EVERY[every] || every.replace(/(\d+) days/, "$1 días").replace(/(\d+) weeks/, "$1 semanas").replace(/(\d+) months/, "$1 meses");
+    return `Primer pago ${fmt(first)}, luego ${fmt(renew)} cada ${esEvery}`;
+  }
   return `First payment ${fmt(first)}, then ${fmt(renew)} every ${every}`;
 }
 
